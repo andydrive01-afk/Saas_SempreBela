@@ -145,6 +145,13 @@
                 <h1>Atendimentos</h1>
             </div>
             <div class="new-item">
+                <a href="monthly_summary.php" title="Resumo Mensal" target="_self" rel="next" style="margin-right:8px;">
+                    <lord-icon src="css/icons/econom.json"
+                    trigger="none"
+                    colors="primary:#ffffff,secondary:#ffffff"
+                    style="width:50px;height:auto">
+                    </lord-icon>
+                </a>
                 <a href="new_treatment.php" title="Novo Atendimento" target="_self" rel="next">
                     <lord-icon src="css/icons/plus.json"
                     trigger="none"

@@ -169,6 +169,25 @@
                 return null;
             }
         }
+        public function monthly_summary($connection){
+            try{
+                $stmt = $connection->query("
+                    SELECT
+                        YEAR(data_atendimento)  AS ano,
+                        MONTH(data_atendimento) AS mes,
+                        COUNT(*)                AS total_atendimentos,
+                        SUM(valor_atendimento)  AS receita_total
+                    FROM atendimentos
+                    GROUP BY YEAR(data_atendimento), MONTH(data_atendimento)
+                    ORDER BY ano DESC, mes DESC
+                ")->fetchAll(PDO::FETCH_OBJ);
+                return $stmt;
+            }
+            catch(PDOException $e){
+                echo $e->getMessage();
+                return null;
+            }
+        }
         public function service_in_use($service_id, $connection){
             try{
                 $stmt = $connection->prepare("SELECT COUNT(*) as total FROM servicos_atendimento WHERE id_servico = :id");

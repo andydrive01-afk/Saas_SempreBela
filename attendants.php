@@ -66,6 +66,13 @@ $stmt = $select->attendants_list($conn);
                                 <tr>
                                     <td><?=$a->nome;?></td>
                                     <td>
+                                        <a id="edit-<?=$a->id;?>" href="pdo/edit_attendant.php?id=<?=$a->id;?>" title='Editar'>
+                                            <lord-icon id="edit-anim-<?=$a->id;?>" src="css/icons/edit.json"
+                                            trigger="none"
+                                            colors="primary:#000,secondary:#000"
+                                            style="width:40px;height:auto">
+                                            </lord-icon>
+                                        </a>|
                                         <a id="delete-<?=$a->id;?>" href="pdo/delete_attendant.php?id=<?=$a->id;?>" title='Deletar'
                                            onclick="return confirm('Tem certeza que deseja excluir o atendente <?=htmlspecialchars($a->nome);?>?')">
                                             <lord-icon id="delete-anim-<?=$a->id;?>" src="css/icons/delete.json"
@@ -76,6 +83,12 @@ $stmt = $select->attendants_list($conn);
                                         </a>
                                         <script>
                                             $(document).ready(function(){
+                                                $('#edit-<?=$a->id;?>').mouseover(function(){
+                                                    $('#edit-anim-<?=$a->id;?>').attr("trigger", "loop");
+                                                });
+                                                $('#edit-<?=$a->id;?>').mouseleave(function(){
+                                                    $('#edit-anim-<?=$a->id;?>').attr("trigger", "none");
+                                                });
                                                 $('#delete-<?=$a->id;?>').mouseover(function(){
                                                     $('#delete-anim-<?=$a->id;?>').attr("trigger", "loop");
                                                 });

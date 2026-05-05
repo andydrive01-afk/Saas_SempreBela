@@ -13,7 +13,7 @@
         return $this->cash_income;
     }
     function getCashOutflow(){
-        return $this->cashoutflow;
+        return $this->cash_outflow;
     }
     function getLastDate(){
         return $this->last_date;
@@ -26,7 +26,7 @@
         $this->cash_income = $cash_income;
     }
     function setCashOutflow($cashoutflow){
-        $this->cashoutflow = $cashoutflow;
+        $this->cash_outflow = $cashoutflow;
     }
     function setLastDate($last_date){
         $this->last_date = $last_date;

@@ -39,20 +39,24 @@ if ! $MYSQL_BIN/mysql --socket=/tmp/mysql.sock -u root database -e "SHOW TABLES;
     echo "Schema imported."
 fi
 
-if ! $MYSQL_BIN/mysql --socket=/tmp/mysql.sock -u root database -e "SHOW TABLES;" 2>/dev/null | grep -q "atendentes"; then
-    echo "Applying schema migrations..."
+echo "Applying schema migrations..."
+$MYSQL_BIN/mysql --socket=/tmp/mysql.sock -u root database -e "
+    CREATE TABLE IF NOT EXISTS atendentes (
+        id INT NOT NULL AUTO_INCREMENT,
+        nome VARCHAR(80) NOT NULL,
+        PRIMARY KEY (id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+" 2>/dev/null
+
+if ! $MYSQL_BIN/mysql --socket=/tmp/mysql.sock -u root database -e "SHOW COLUMNS FROM atendimentos LIKE 'atendente_id';" 2>/dev/null | grep -q "atendente_id"; then
     $MYSQL_BIN/mysql --socket=/tmp/mysql.sock -u root database -e "
-        CREATE TABLE IF NOT EXISTS atendentes (
-            id INT NOT NULL AUTO_INCREMENT,
-            nome VARCHAR(80) NOT NULL,
-            PRIMARY KEY (id)
-        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-        ALTER TABLE atendimentos ADD COLUMN IF NOT EXISTS atendente_id INT NULL;
-        ALTER TABLE atendimentos ADD CONSTRAINT IF NOT EXISTS atendimentos_atendente_fk
+        ALTER TABLE atendimentos ADD COLUMN atendente_id INT NULL;
+        ALTER TABLE atendimentos ADD CONSTRAINT atendimentos_atendente_fk
             FOREIGN KEY (atendente_id) REFERENCES atendentes(id) ON DELETE SET NULL;
     " 2>/dev/null
-    echo "Migrations applied."
+    echo "Column atendente_id added."
 fi
+echo "Migrations complete."
 
 echo "Starting PHP server on port 5000..."
 exec php -S 0.0.0.0:5000 -t /home/runner/workspace

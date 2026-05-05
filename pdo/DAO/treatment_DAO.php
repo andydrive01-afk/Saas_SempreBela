@@ -169,6 +169,57 @@
                 return null;
             }
         }
+        public function client_treatments($client_id, $connection){
+            try{
+                $stmt = $connection->prepare("
+                    SELECT
+                        a.id,
+                        a.data_atendimento,
+                        a.valor_atendimento,
+                        a.metodo,
+                        a.d_assiduidade,
+                        a.d_aniversario,
+                        a.promocao_percent,
+                        a.promocao_valor,
+                        at.nome AS atendente_nome,
+                        GROUP_CONCAT(s.servico ORDER BY s.servico SEPARATOR ', ') AS servicos_lista
+                    FROM atendimentos a
+                    LEFT JOIN atendentes at ON a.atendente_id = at.id
+                    LEFT JOIN servicos_atendimento sa ON a.id = sa.id_atendimento
+                    LEFT JOIN servicos s ON sa.id_servico = s.id
+                    WHERE a.id_cliente = :id
+                    GROUP BY a.id
+                    ORDER BY a.data_atendimento DESC
+                ");
+                $stmt->bindValue(":id", $client_id);
+                $stmt->execute();
+                return $stmt->fetchAll(PDO::FETCH_OBJ);
+            }
+            catch(PDOException $e){
+                echo $e->getMessage();
+                return null;
+            }
+        }
+        public function client_summary($client_id, $connection){
+            try{
+                $stmt = $connection->prepare("
+                    SELECT
+                        COUNT(*) AS total_atendimentos,
+                        SUM(valor_atendimento) AS total_gasto,
+                        MAX(data_atendimento) AS ultimo_atendimento,
+                        MIN(data_atendimento) AS primeiro_atendimento
+                    FROM atendimentos
+                    WHERE id_cliente = :id
+                ");
+                $stmt->bindValue(":id", $client_id);
+                $stmt->execute();
+                return $stmt->fetch(PDO::FETCH_OBJ);
+            }
+            catch(PDOException $e){
+                echo $e->getMessage();
+                return null;
+            }
+        }
         public function monthly_summary($connection){
             try{
                 $stmt = $connection->query("

@@ -88,6 +88,16 @@
                 return null;
             }
         }
+        public function costumer_info($id, $connection){
+            try{
+                $stmt = $connection->query("SELECT * FROM clientes WHERE id = '$id'")->fetchAll(PDO::FETCH_OBJ);
+                return $stmt;
+            }
+            catch(PDOException $e){
+                echo $e->getMessage();
+                return null;
+            }
+        }
         public function get_costumer_name($connection, $id){
             try{
                 $stmt = $connection->query("SELECT nome FROM clientes WHERE id = '$id'")->fetchAll(PDO::FETCH_OBJ);

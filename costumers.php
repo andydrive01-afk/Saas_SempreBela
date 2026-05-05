@@ -71,6 +71,13 @@
                                     <td><?=$cos->tel;?></td>
                                     <td><?=date('d/m/Y', strtotime($cos->data_nasc));?></td>
                                     <td>
+                                        <a id="history-<?=$cos->id;?>" href="client_history.php?id=<?=$cos->id;?>" title='Histórico'>
+                                            <lord-icon id="history-anim-<?=$cos->id;?>" src="css/icons/book.json"
+                                            trigger="none"
+                                            colors="primary:#000,secondary:#000"
+                                            style="width:40px;height:auto">
+                                            </lord-icon>
+                                        </a>|
                                         <a id="edit-<?=$cos->id;?>" href="pdo/edit_costumer.php?id=<?=$cos->id;?>" title='Editar'>
                                             <lord-icon id="edit-anim-<?=$cos->id;?>" src="css/icons/edit.json"
                                             trigger="none"
@@ -87,6 +94,12 @@
                                         </a>
                                         <script>
                                             $(document).ready(function(){
+                                                $('#history-<?=$cos->id;?>').mouseover(function(){
+                                                    $('#history-anim-<?=$cos->id;?>').attr("trigger", "loop");
+                                                });
+                                                $('#history-<?=$cos->id;?>').mouseleave(function(){
+                                                    $('#history-anim-<?=$cos->id;?>').attr("trigger", "none");
+                                                });
                                                 $('#edit-<?=$cos->id;?>').mouseover(function(){
                                                     $('#edit-anim-<?=$cos->id;?>').attr("trigger", "loop");
                                                 });

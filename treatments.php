@@ -157,6 +157,17 @@
     </header>
     <main>
         <section class="list-out">
+            <div class="treatment-filters">
+                <input type="text" id="filter-client" placeholder="Buscar por cliente...">
+                <input type="text" id="filter-attendant" placeholder="Buscar por atendente...">
+                <div class="filter-date-group">
+                    <label for="filter-date-from">De:</label>
+                    <input type="date" id="filter-date-from">
+                    <label for="filter-date-to">Até:</label>
+                    <input type="date" id="filter-date-to">
+                    <button id="filter-clear">Limpar filtros</button>
+                </div>
+            </div>
             <div class="data-table-large" id="data-table-treatment">
                 <table border='0'>
                     <tr><th>Cliente</th><th>Atendente</th><th>Data</th><th>Desc. Assiduidade</th>
@@ -190,7 +201,7 @@
                                     }
                                 }
                     ?>
-                                <tr>
+                                <tr data-date="<?=$t->data_atendimento;?>" data-client="<?=strtolower($t->nome_cliente);?>" data-attendant="<?=strtolower($attendant_name);?>">
                                     <td><?=$t->nome_cliente;?></td>
                                     <td><?=$attendant_name;?></td>
                                     <td><?=date('d/m/Y', strtotime($t->data_atendimento));?></td>
@@ -256,5 +267,41 @@
         </lord-icon>
         | &copy; 2021 Todos os direitos reservados.</p>
     </footer>
+    <script>
+        $(document).ready(function(){
+            function applyFilters() {
+                var client   = $('#filter-client').val().toLowerCase().trim();
+                var attendant = $('#filter-attendant').val().toLowerCase().trim();
+                var dateFrom = $('#filter-date-from').val();
+                var dateTo   = $('#filter-date-to').val();
+
+                $('#data-table-treatment table tr:not(:first-child)').each(function(){
+                    var rowClient   = $(this).data('client') || '';
+                    var rowAttendant = $(this).data('attendant') || '';
+                    var rowDate     = $(this).data('date') || '';
+
+                    var matchClient   = !client   || rowClient.indexOf(client) !== -1;
+                    var matchAttendant = !attendant || rowAttendant.indexOf(attendant) !== -1;
+                    var matchFrom     = !dateFrom  || rowDate >= dateFrom;
+                    var matchTo       = !dateTo    || rowDate <= dateTo;
+
+                    $(this).toggle(matchClient && matchAttendant && matchFrom && matchTo);
+                });
+            }
+
+            $('#filter-client').on('input', applyFilters);
+            $('#filter-attendant').on('input', applyFilters);
+            $('#filter-date-from').on('change', applyFilters);
+            $('#filter-date-to').on('change', applyFilters);
+
+            $('#filter-clear').on('click', function(){
+                $('#filter-client').val('');
+                $('#filter-attendant').val('');
+                $('#filter-date-from').val('');
+                $('#filter-date-to').val('');
+                applyFilters();
+            });
+        });
+    </script>
 </body>
 </html>

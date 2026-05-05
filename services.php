@@ -40,6 +40,9 @@
     </header>
     <main>
         <section class="list-out">
+            <div class="search-bar-wrap">
+                <input type="text" id="table-search" placeholder="Buscar serviço pelo nome...">
+            </div>
             <div class="data-table" id="data-table-service">
                 <table border='0'>
                     <tr><th>Serviço</th><th>Valor</th><th>Opções</th></tr>
@@ -117,5 +120,16 @@
         </lord-icon>
         | &copy; 2021 Todos os direitos reservados.</p>
     </footer>
+    <script>
+        $(document).ready(function(){
+            $('#table-search').on('input', function(){
+                var term = $(this).val().toLowerCase();
+                $('#data-table-service table tr:not(:first-child)').each(function(){
+                    var name = $(this).find('td:first').text().toLowerCase();
+                    $(this).toggle(name.indexOf(term) !== -1);
+                });
+            });
+        });
+    </script>
 </body>
 </html>

@@ -611,3 +611,25 @@ textarea {
     padding: 12px;
     border-radius: 10px;
 }
+.search-bar-wrap {
+    width: 1150px;
+    margin-left: auto;
+    margin-right: auto;
+    margin-bottom: 12px;
+    margin-top: 8px;
+}
+.search-bar-wrap input[type="text"] {
+    width: 100%;
+    padding: 10px 16px;
+    font-size: 15px;
+    border: 1px solid #ccc;
+    border-radius: 8px;
+    box-sizing: border-box;
+    outline: none;
+    font-family: 'Montserrat', sans-serif;
+    transition: border-color 0.2s;
+}
+.search-bar-wrap input[type="text"]:focus {
+    border-color: #b06ab3;
+    box-shadow: 0 0 0 2px rgba(176,106,179,0.15);
+}

@@ -203,6 +203,20 @@ footer {
 #background-type-financial {
     background-image: url("../img/financial-signal.png");
 }
+
+#background-type-attendant {
+    background-image: url("../img/costumer-signal.png");
+}
+#attendant-title {
+    background: linear-gradient(135deg, #b06ab3, #4568dc);
+}
+#data-table-attendant th {
+    background: linear-gradient(135deg, #b06ab3, #4568dc);
+    color: #fff;
+}
+#button-color-attendant {
+    background: linear-gradient(135deg, #b06ab3, #4568dc);
+}
 #background-type-service {
     background-image: url("../img/service-signal.png");
 }

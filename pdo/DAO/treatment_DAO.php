@@ -19,9 +19,9 @@
 
             try{
                 $stmt = $connection->prepare("INSERT INTO atendimentos(id_cliente, nome_cliente, d_assiduidade,
-                d_aniversario, promocao_percent, promocao_valor, metodo, valor_atendimento, data_atendimento) 
+                d_aniversario, promocao_percent, promocao_valor, metodo, valor_atendimento, data_atendimento, atendente_id) 
                 VALUES(:id_cliente, :nome_cliente, :d_assiduidade, :d_aniversario, :promocao_percent,
-                :promocao_valor, :metodo, :valor_atendimento, :data_atendimento)");
+                :promocao_valor, :metodo, :valor_atendimento, :data_atendimento, :atendente_id)");
                 $stmt->bindValue(":id_cliente", $treatment->getCostumerId());
                 $stmt->bindValue(":nome_cliente", $treatment->getCostumerName());
                 $stmt->bindValue(":d_assiduidade", $treatment->getAssiduity());
@@ -31,6 +31,7 @@
                 $stmt->bindValue(":metodo", $treatment->getPaymentMethod());
                 $stmt->bindValue(":valor_atendimento", $treatment->getTreatmentPrice());
                 $stmt->bindValue(":data_atendimento", $treatment->getTreatmentDate());
+                $stmt->bindValue(":atendente_id", $treatment->getAttendantId(), PDO::PARAM_INT);
             
                 $stmt->execute();
                 
@@ -166,6 +167,30 @@
                 echo $e->getMessage();
 
                 return null;
+            }
+        }
+        public function service_in_use($service_id, $connection){
+            try{
+                $stmt = $connection->prepare("SELECT COUNT(*) as total FROM servicos_atendimento WHERE id_servico = :id");
+                $stmt->bindValue(":id", $service_id);
+                $stmt->execute();
+                $row = $stmt->fetch(PDO::FETCH_OBJ);
+                return $row->total > 0;
+            }
+            catch(PDOException $e){
+                return false;
+            }
+        }
+        public function product_in_use($product_id, $connection){
+            try{
+                $stmt = $connection->prepare("SELECT COUNT(*) as total FROM produtos_atendimento WHERE id_produto = :id");
+                $stmt->bindValue(":id", $product_id);
+                $stmt->execute();
+                $row = $stmt->fetch(PDO::FETCH_OBJ);
+                return $row->total > 0;
+            }
+            catch(PDOException $e){
+                return false;
             }
         }
     }

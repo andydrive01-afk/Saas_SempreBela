@@ -4,12 +4,15 @@
     include_once ('pdo/DAO/service_DAO.php');
     include_once ('pdo/DAO/sale_DAO.php');
     include_once ('pdo/DAO/product_DAO.php');
+    include_once ('pdo/DAO/attendant_DAO.php');
 
     $c = new connection();
     $conn = $c->connect();
 
     $select = new treatment_DAO();
     $stmt = $select->treatments_list($conn);
+
+    $attendant_dao = new attendant_DAO();
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -52,7 +55,7 @@
                         <?php
                                     }
                                 }
-                                if($stmt2 == null){
+                                if($stmt2 == null || count($stmt2) == 0){
                         ?>
                                     <p>Nenhum serviço foi encontrado neste atendimento.</p>
                                     <br/>
@@ -80,7 +83,7 @@
                         <?php
                                     }
                                 }
-                                if($stmt2 == null){
+                                if($stmt2 == null || count($stmt2) == 0){
                         ?>
                                     <p>Nenhum Produto foi utilizado neste atendimento.</p>
                                     <br/>
@@ -111,7 +114,7 @@
                     <?php
                                 }
                             }
-                            if($stmt2 == null){
+                            if($stmt2 == null || count($stmt2) == 0){
                     ?>
                                 <p>Nenhuma Venda foi realizada neste atendimento.</p>
                                 <br/>
@@ -156,12 +159,12 @@
         <section class="list-out">
             <div class="data-table-large" id="data-table-treatment">
                 <table border='0'>
-                    <tr><th>Cliente</th><th>Data do atendimento</th><th>Desconto de assiduidade</th>
-                    <th>Desconto de aniversário</th><th>Promoção</th><th>Método de pagamento</th>
+                    <tr><th>Cliente</th><th>Atendente</th><th>Data</th><th>Desc. Assiduidade</th>
+                    <th>Desc. Aniversário</th><th>Promoção</th><th>Pagamento</th>
                     <th>Valor Final</th><th>Opções</th></tr>
                 
                     <?php
-                        if($stmt == null){
+                        if($stmt == null || count($stmt) == 0){
                     ?>
                             </table>
                             <p>Nenhum atendimento foi encontrado.</p>
@@ -178,9 +181,18 @@
                                 else{
                                     $promocao = "Não";
                                 }
+
+                                $attendant_name = "—";
+                                if(isset($t->atendente_id) && $t->atendente_id != null){
+                                    $a_list = $attendant_dao->attendant_name($t->atendente_id, $conn);
+                                    if($a_list && count($a_list) > 0){
+                                        $attendant_name = $a_list[0]->nome;
+                                    }
+                                }
                     ?>
                                 <tr>
                                     <td><?=$t->nome_cliente;?></td>
+                                    <td><?=$attendant_name;?></td>
                                     <td><?=date('d/m/Y', strtotime($t->data_atendimento));?></td>
                                     <td><?=$t->d_assiduidade;?></td>
                                     <td><?=$t->d_aniversario;?></td>

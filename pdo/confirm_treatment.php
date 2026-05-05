@@ -11,9 +11,6 @@
     include_once ("classes/product.php");
     include_once ("DAO/product_DAO.php");
 
-    date_default_timezone_set('America/Sao_Paulo');
-    $date = date('Y-m-d');
-
     $c = new connection();
     $conn = $c->connect();
 
@@ -76,7 +73,21 @@
 
     $t->setPaymentMethod($_POST['payment']);
     $t->setTreatmentPrice($_POST['final_price']);
-    $t->setTreatmentDate($date);
+
+    // Use the date provided by the form (allows registering past appointments)
+    if(isset($_POST['treatment_date']) && $_POST['treatment_date'] != ""){
+        $t->setTreatmentDate($_POST['treatment_date']);
+    } else {
+        date_default_timezone_set('America/Sao_Paulo');
+        $t->setTreatmentDate(date('Y-m-d'));
+    }
+
+    // Attendant (optional)
+    if(isset($_POST['attendant']) && $_POST['attendant'] != '' && $_POST['attendant'] != 'null'){
+        $t->setAttendantId($_POST['attendant']);
+    } else {
+        $t->setAttendantId(null);
+    }
 
     if($user_verificator == true){
         $insert = new treatment_DAO();
@@ -142,9 +153,10 @@
             }
         }
         
+        $treatmentDate = $t->getTreatmentDate();
         $s->setValue($sale_cash);
         $s->setOrigin($check);
-        $s->setSaleDate($date);
+        $s->setSaleDate($treatmentDate);
 
         $sale_insert = new sale_DAO();
         $stmt = $sale_insert->insert_sale($s, $conn);
@@ -196,7 +208,7 @@
         $result = 2;
     }
 
-    if($result == 1){
+    if($result == 1 || $result === true){
         $message = "Sucesso! O Atendimento foi registrado com êxito.";
     }
     else if($result == 0){

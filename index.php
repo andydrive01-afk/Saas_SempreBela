@@ -150,6 +150,15 @@
                     </a>
                 </div>
                 <div class="options">
+                    <a href="attendants.php" id="attendant" target="_self" rel="next">Atendentes
+                        <lord-icon id="attendant-anim" src="css/icons/female-costumer.json"
+                        trigger="none"
+                        colors="primary:#ffffff,secondary:#ffffff"
+                        style="width:40px;height:auto;padding-bottom:5px;">
+                        </lord-icon>
+                    </a>
+                </div>
+                <div class="options">
                     <a href="backup.php" id="backup" target="_blank" rel="next">Backup
                         <lord-icon id="backup-anim" src="css/icons/data-server.json"
                         trigger="none"
@@ -276,6 +285,12 @@
             });
             $('#product').mouseleave(function(){
                 $('#product-anim').attr("trigger", "none");
+            });
+            $('#attendant').mouseover(function(){
+                $('#attendant-anim').attr("trigger", "loop");
+            });
+            $('#attendant').mouseleave(function(){
+                $('#attendant-anim').attr("trigger", "none");
             });
             $('#open-notify').click(function(){
                 $('#notify-text').css('display', 'inherit');

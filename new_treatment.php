@@ -4,6 +4,7 @@
     include_once ("pdo/DAO/service_DAO.php");
     include_once ("pdo/DAO/product_DAO.php");
     include_once ("pdo/DAO/treatment_DAO.php");
+    include_once ("pdo/DAO/attendant_DAO.php");
 
     $c = new connection();
     $conn = $c->connect();
@@ -19,6 +20,12 @@
 
     $select = new treatment_DAO();
     $stmt4 = $select->treatments_list($conn);
+
+    $select = new attendant_DAO();
+    $stmt5 = $select->attendants_list($conn);
+
+    date_default_timezone_set('America/Sao_Paulo');
+    $today = date('Y-m-d');
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -66,6 +73,22 @@
         <section class="list-out-form">
             <div class="form-style">
                 <form action="pdo/confirm_treatment.php" method="post">
+
+                    <h2>Data do Atendimento</h2>
+                    <label id="solo-label" for="treatment_date">Data:</label>
+                    <input type="date" name="treatment_date" id="treatment_date" value="<?=$today;?>" max="<?=$today;?>">
+
+                    <hr>
+                    <h2>Atendente</h2>
+                    <label id="solo-label" for="attendant">Atendente:</label>
+                    <select name="attendant" id="attendant" class="selectSearch">
+                        <option value="null">— Nenhum —</option>
+                        <?php foreach($stmt5 as $at): ?>
+                            <option value="<?=$at->id;?>"><?=$at->nome;?></option>
+                        <?php endforeach; ?>
+                    </select>
+
+                    <hr>
                     <h2>Cliente Existente</h2>
                     <label id="solo-label" for="costumer_name">Nome:</label> 
                     <select name="costumer" id="costumer" class="selectSearch">
@@ -106,9 +129,8 @@
                     </div>
                     <?php
                     
-                    // Verificar clientes que possuem descontos -----------------------------
+                    // Verificar clientes que possuem descontos
 
-                    date_default_timezone_set('America/Sao_Paulo');
                     $this_day = date('d');
                     $this_month = date('m');
                     
@@ -135,7 +157,7 @@
                             }
                         }
 
-                        if($assiduity >  4){
+                        if($assiduity > 4){
                             $discount2 = 'true';
                             $activating = 'true';
                         }
@@ -149,8 +171,6 @@
                         <?php
                         }
                     }
-
-                    // ------------------------------------------------------------------------
                     ?>
                     <hr>
                     <h2>Serviços</h2>
@@ -159,7 +179,7 @@
                             foreach($stmt2 as $s){
                         ?>
                             <option value="<?=$s->id;?>"><?=$s->servico;?>: R$ 
-                            <?=number_format($s->valor, 2, ',');?>.</option>
+                            <?=number_format($s->valor, 2, ',');?></option>
                         <?php
                             }
                         ?>
@@ -167,14 +187,11 @@
                     
                     <div id="invisible-list">
                         <?php
-                        // Lista invisivel de serviços para cálculo do valor final do atendimento
-
                             foreach($stmt2 as $serv){
                         ?>
                                 <p id="service<?=$serv->id;?>" value="<?=$serv->valor;?>"></p>
                         <?php
                             }
-                        
                         ?>
                     </div>
                     <hr>
@@ -183,7 +200,7 @@
                         <?php
                             foreach($stmt3 as $p){
                         ?>
-                            <option value="<?=$p->id;?>"><?=$p->nome;?></option>
+                            <option value="<?=$p->id;?>"><?=$p->nome;?> (<?=$p->quantidade;?> unid.)</option>
                         <?php
                             }
                         ?>
@@ -239,8 +256,7 @@
                     <hr>
                     <div id="#final-form">
                         <h2>Valor do Atendimento</h2>
-                        <p id="final-price"></p>
-                        <p class="fake-button" id="generate-final-price">Gerar valor do atendimento</p>
+                        <p id="final-price">R$ 0,00</p>
                         <input id="t-final-price" type="hidden" name="final_price" value="0">
                     </div>
                     <hr>
@@ -261,11 +277,54 @@
         | &copy; Todos os direitos reservados.</p>
     </footer>
     <script>
+        function calcFinalPrice() {
+            var finalPrice = 0.00;
+            var servicesIds = $('#services').val();
+            var servicesPrice = 0;
+            var salesPrice = parseFloat($('#sale-price').val());
+            var offPercent = $('#off-percent').val();
+            var offValue = $('#off-value').val();
+            var payment = $('#payment').children('option:selected').val();
+
+            if(servicesIds){
+                for(var count = 0; count < servicesIds.length; count++){
+                    servicesPrice += parseFloat($('#service'+servicesIds[count]).attr('value'));
+                }
+            }
+            if(Number.isNaN(salesPrice)){ salesPrice = 0; }
+            if(offPercent == ""){ offPercent = 0; }
+            if(offValue == ""){ offValue = 0; }
+
+            if(payment == "Pix" || payment == "Débito" || payment == "Crédito 1x" || payment == "Dinheiro"){
+                var tax = 0;
+            } else if(payment == "Crédito 2x" || payment == "Crédito 3x" || payment == "Crédito 4x" ||
+                payment == "Crédito 5x" || payment == "Crédito 6x"){
+                var tax = 5;
+            } else if(payment == "Crédito 7x" || payment == "Crédito 8x" || payment == "Crédito 9x" ||
+                payment == "Crédito 10x"){
+                var tax = 6;
+            }
+
+            if(discount1 == true){ servicesPrice -= servicesPrice * 0.1; }
+            if(discount2 == true){ servicesPrice -= servicesPrice * 0.05; }
+
+            finalPrice += servicesPrice;
+            finalPrice -= finalPrice * (offPercent / 100);
+            finalPrice -= parseFloat(offValue);
+            finalPrice += salesPrice;
+            finalPrice += finalPrice * (tax / 100);
+            if(finalPrice < 0){ finalPrice = 0; }
+
+            $('#final-price').text('R$ ' + finalPrice.toFixed(2).replace(".", ","));
+            $('#t-final-price').val(finalPrice);
+        }
+
         $(document).ready(function() {
             $('#phone').mask("99 99999-9999");
             $('#apply1').hide();
             $('#apply2').hide();
             $('.selectSearch').select2();
+
             $('#show-sale-form').click(function(){
                 $('#confirm-sale').css('display', 'inherit');
             });
@@ -278,6 +337,7 @@
             $('#hide-discount-form').click(function(){
                 $('#confirm-discount').css('display', 'none');
             });
+
             $('#discount-verificator').click(function(){
                 $('#discounts').css('display', 'inherit');
                 var verifId = $('#costumer').children("option:selected").val();
@@ -310,12 +370,14 @@
                     $('#discount2').css('color', 'red');
                 }
             });
+
             $('#apply1').click(function(){
                 discount1 = true;
                 $('#discount1').text('Desconto de aniversário: Aplicado');
                 $('#discount1').css('color', 'green');
                 $('#apply1').hide();
                 $('#invisible-parm1').html("<input type='hidden' name='birthday' value='Sim'>");
+                calcFinalPrice();
             });
             $('#apply2').click(function(){
                 discount2 = true;
@@ -323,56 +385,15 @@
                 $('#discount2').css('color', 'green');
                 $('#apply2').hide();
                 $('#invisible-parm2').html("<input type='hidden' name='assiduity' value='Sim'>");
+                calcFinalPrice();
             });
-            $('#generate-final-price').click(function(){
-                var finalPrice = 0.00;
-                var servicesIds = $('#services').val();
-                var servicesPrice = 0;
-                var salesPrice = parseFloat($('#sale-price').val());
-                var offPercent = $('#off-percent').val();
-                var offValue = $('#off-value').val();
-                var payment = $('#payment').children('option:selected').val();
 
-                for(count = 0; count < servicesIds.length; count++){
-                    servicesPrice += parseFloat($('#service'+servicesIds[count]).attr('value'));
-                }
-                if(Number.isNaN(salesPrice)){
-                    salesPrice = 0;
-                }
-                if(offPercent == ""){
-                    offPercent = 0;
-                }
-                if(offValue == ""){
-                    offValue = 0;
-                }
-                if(payment == "Pix" || payment == "Débito" || payment == "Crédito 1x" || payment == "Dinheiro"){
-                    var tax = 0;
-                }
-                else if(payment == "Crédito 2x" || payment == "Crédito 3x" || payment == "Crédito 4x" ||
-                payment == "Crédito 5x" || payment == "Crédito 6x"){
-                    var tax = 5;
-                }
-                else if(payment == "Crédito 7x" || payment == "Crédito 8x" || payment == "Crédito 9x" ||
-                payment == "Crédito 10x"){
-                    var tax = 6;
-                }
-                if(discount1 == true){
-                    servicesPrice -= servicesPrice*0.1;
-                }
-                if(discount2 == true){
-                    servicesPrice -= servicesPrice*0.05;
-                }
-                finalPrice += servicesPrice;
-                finalPrice -= finalPrice*(offPercent/100);
-                finalPrice -= offValue;
-                finalPrice += salesPrice;
-                finalPrice += finalPrice*(tax/100);
-                if(finalPrice < 0){
-                    finalPrice = 0;
-                }
-                $('#final-price').text('R$ '+finalPrice.toFixed(2).replace(".", ","));
-                $('#t-final-price').val(finalPrice);
-            });
+            // Auto-calculate when selections change
+            $('#services').on('change', calcFinalPrice);
+            $('#payment').on('change', calcFinalPrice);
+            $('#sale-price').on('input', calcFinalPrice);
+            $('#off-percent').on('input', calcFinalPrice);
+            $('#off-value').on('input', calcFinalPrice);
         });
     </script>
 </body>

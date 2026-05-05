@@ -5,6 +5,13 @@ MYSQL_DATA="/home/runner/mysql8-data"
 
 rm -f /tmp/mysql.sock /tmp/mysql.sock.lock /tmp/mysql.pid
 
+if [ ! -d "$MYSQL_DATA/mysql" ]; then
+    echo "Initializing MySQL data directory..."
+    mkdir -p "$MYSQL_DATA"
+    $MYSQL_BIN/mysqld --initialize-insecure --user=runner --datadir=$MYSQL_DATA 2>&1
+    echo "MySQL initialization complete."
+fi
+
 $MYSQL_BIN/mysqld \
   --user=runner \
   --datadir=$MYSQL_DATA \
@@ -13,8 +20,6 @@ $MYSQL_BIN/mysqld \
   --port=3306 \
   --mysqlx=OFF \
   --bind-address=127.0.0.1 &
-
-MYSQL_PID=$!
 
 echo "Waiting for MySQL to start..."
 for i in $(seq 1 30); do
@@ -25,6 +30,29 @@ for i in $(seq 1 30); do
   fi
   echo "Waiting... ($i)"
 done
+
+$MYSQL_BIN/mysql --socket=/tmp/mysql.sock -u root -e "CREATE DATABASE IF NOT EXISTS \`database\`;" 2>/dev/null
+
+if ! $MYSQL_BIN/mysql --socket=/tmp/mysql.sock -u root database -e "SHOW TABLES;" 2>/dev/null | grep -q "atendimentos"; then
+    echo "Importing database schema..."
+    $MYSQL_BIN/mysql --socket=/tmp/mysql.sock -u root database < /home/runner/workspace/sql/database.sql
+    echo "Schema imported."
+fi
+
+if ! $MYSQL_BIN/mysql --socket=/tmp/mysql.sock -u root database -e "SHOW TABLES;" 2>/dev/null | grep -q "atendentes"; then
+    echo "Applying schema migrations..."
+    $MYSQL_BIN/mysql --socket=/tmp/mysql.sock -u root database -e "
+        CREATE TABLE IF NOT EXISTS atendentes (
+            id INT NOT NULL AUTO_INCREMENT,
+            nome VARCHAR(80) NOT NULL,
+            PRIMARY KEY (id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+        ALTER TABLE atendimentos ADD COLUMN IF NOT EXISTS atendente_id INT NULL;
+        ALTER TABLE atendimentos ADD CONSTRAINT IF NOT EXISTS atendimentos_atendente_fk
+            FOREIGN KEY (atendente_id) REFERENCES atendentes(id) ON DELETE SET NULL;
+    " 2>/dev/null
+    echo "Migrations applied."
+fi
 
 echo "Starting PHP server on port 5000..."
 exec php -S 0.0.0.0:5000 -t /home/runner/workspace

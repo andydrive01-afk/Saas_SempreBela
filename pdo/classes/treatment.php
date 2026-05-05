@@ -9,6 +9,7 @@
     private $payment_method;
     private $treatment_price;
     private $treatment_date;
+    private $attendant_id;
 
     //----------------Getters--------------------------------------- 
     function getCostumerId(){
@@ -38,6 +39,9 @@
     function getTreatmentDate(){
         return $this->treatment_date;
     }
+    function getAttendantId(){
+        return $this->attendant_id;
+    }
     //------------------Setters-------------------------------------
     function setCostumerId($costumer_id){
         $this->costumer_id = $costumer_id;
@@ -65,5 +69,8 @@
     }
     function setTreatmentDate($treatment_date){
         $this->treatment_date = $treatment_date;
+    }
+    function setAttendantId($attendant_id){
+        $this->attendant_id = $attendant_id;
     }
 }

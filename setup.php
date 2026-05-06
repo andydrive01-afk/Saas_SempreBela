@@ -1,56 +1,31 @@
 <?php
-/* ─── Carrega config e settings sem redirecionar ─── */
-$_cfg_path   = __DIR__ . '/config.php';
-$_cfg_exists = file_exists($_cfg_path);
-$_db_ok      = false;
-$conn        = null;
+session_start();
 
-if ($_cfg_exists) {
-    include_once 'pdo/connection.php';
-    try {
-        $_sc    = new connection();
-        $conn   = $_sc->connect();
-        $_db_ok = true;
-    } catch (Exception $_e) {
-        $_db_ok = false;
-    }
-}
+/* ── Carrega config.php se existir ── */
+$_cfg = __DIR__ . '/config.php';
+if (file_exists($_cfg)) @include_once $_cfg;
 
-/* Lê credenciais salvas para pré-preencher o form */
-$_saved_cfg = [];
-if ($_cfg_exists) {
-    include_once $_cfg_path;
-    $_saved_cfg = [
-        'host' => defined('DB_HOST') ? DB_HOST : 'localhost',
-        'name' => defined('DB_NAME') ? DB_NAME : '',
-        'user' => defined('DB_USER') ? DB_USER : '',
-        'port' => defined('DB_PORT') ? DB_PORT : 3306,
-    ];
-}
+$_setup_done = defined('SETUP_COMPLETE') && SETUP_COMPLETE;
 
-/* Lê configurações visuais do banco (só se conectado) */
-$salon_name   = 'Espaço da Beleza Lucia Reis';
-$salon_local  = 'Santana do Livramento, RS';
-$cor_primaria = '#7a3444';
-$cor_destaque = '#b06ab3';
-$logo_path    = 'img/logo-full.png';
+/* ── Flash messages ── */
+$_flash = $_SESSION['flash'] ?? null;
+unset($_SESSION['flash']);
 
-if ($_db_ok && $conn) {
-    include_once 'pdo/DAO/settings_DAO.php';
-    $_dao = new settings_DAO();
-    $_s   = $_dao->get_all($conn);
-    $salon_name   = $_s['nome_salao']   ?? $salon_name;
-    $salon_local  = $_s['local_salao']  ?? $salon_local;
-    $cor_primaria = $_s['cor_primaria'] ?? $cor_primaria;
-    $cor_destaque = $_s['cor_destaque'] ?? $cor_destaque;
-    $logo_path    = $_s['logo_path']    ?? $logo_path;
-}
+/* ── Modo: wizard ou runtime ── */
+if (!$_setup_done) {
+    /* ════════════════════════════════════════════════════════════
+       MODO WIZARD — primeiro uso
+    ════════════════════════════════════════════════════════════ */
+    $step = max(1, (int)($_GET['step'] ?? 1));
 
-$is_first_run = isset($_GET['first_run']) || !$_cfg_exists;
-$saved        = isset($_GET['saved']) && $_GET['saved'] == '1';
-$db_saved     = isset($_GET['db']) && $_GET['db'] == '1';
-$error        = $_GET['error'] ?? '';
-$db_error_msg = (!$_cfg_exists ? '' : (!$_db_ok ? 'Não foi possível conectar ao banco com as credenciais salvas.' : ''));
+    // Garante que steps anteriores estão completos antes de avançar
+    if ($step >= 2 && empty($_SESSION['wizard']['db']))     { $step = 1; }
+    if ($step >= 3 && empty($_SESSION['wizard']['admin']))  { $step = 2; }
+    if ($step >= 4 && empty($_SESSION['wizard']['master'])) { $step = 3; }
+
+    // Progresso visual
+    $steps_labels = ['Banco de Dados','Conta Admin','Conta Master','Identidade'];
+    $total_steps  = count($steps_labels);
 ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
@@ -58,366 +33,721 @@ $db_error_msg = (!$_cfg_exists ? '' : (!$_db_ok ? 'Não foi possível conectar a
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="css/fonts.css" rel="stylesheet">
-    <link href="css/main.css" rel="stylesheet">
-    <?php if ($_db_ok): ?><link href="css/theme.php" rel="stylesheet"><?php endif; ?>
-    <script src="js/jquery-3.5.1.min.js"></script>
-    <link rel="icon" href="<?=$logo_path?>">
-    <title>Configurações — <?=$salon_name?></title>
+    <title>Configuração Inicial — Espaço da Beleza</title>
     <style>
-        body { background: #f4f0f4; font-family: 'Roboto', sans-serif; margin: 0; }
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body { min-height:100vh; background:linear-gradient(135deg,#7a3444,#b06ab3);
+           font-family:'Roboto',sans-serif; padding:30px 16px 60px; }
 
-        .setup-page-header {
-            background: linear-gradient(135deg, <?=$cor_primaria?>, <?=$cor_destaque?>);
-            color: #fff; padding: 0 32px;
-            display: flex; align-items: center; justify-content: space-between;
-            height: 70px; box-shadow: 0 2px 8px rgba(0,0,0,.18);
-        }
-        .setup-page-header h1 { margin:0; font-size:22px; font-weight:700; }
-        .setup-back { color:#fff; text-decoration:none; font-size:14px; }
-        .setup-back:hover { opacity:.8; }
+    .wiz-wrap { max-width:620px; margin:0 auto; }
 
-        .setup-wrap { max-width:780px; margin:36px auto 60px; display:flex; flex-direction:column; gap:28px; padding:0 16px; }
+    /* Header */
+    .wiz-header { text-align:center; margin-bottom:28px; }
+    .wiz-header h1 { color:#fff; font-size:24px; font-weight:700; margin-bottom:4px; }
+    .wiz-header p  { color:rgba(255,255,255,.75); font-size:14px; }
 
-        .setup-card { background:#fff; border-radius:14px; box-shadow:0 2px 10px rgba(0,0,0,.08); overflow:hidden; }
-        .setup-card-header {
-            background: linear-gradient(135deg, <?=$cor_primaria?>, <?=$cor_destaque?>);
-            color:#fff; padding:14px 24px; font-size:15px; font-weight:700;
-            display:flex; align-items:center; gap:10px;
-        }
-        .setup-card-body { padding:24px; }
+    /* Progress indicator */
+    .wiz-progress { display:flex; align-items:center; margin-bottom:32px; }
+    .wiz-step { flex:1; text-align:center; position:relative; }
+    .wiz-step:not(:last-child)::after {
+        content:''; position:absolute; top:16px; left:60%; width:80%; height:2px;
+        background:rgba(255,255,255,.3); z-index:0;
+    }
+    .wiz-step.done::after  { background:rgba(255,255,255,.8); }
+    .wiz-dot {
+        width:32px; height:32px; border-radius:50%;
+        background:rgba(255,255,255,.2); border:2px solid rgba(255,255,255,.4);
+        color:rgba(255,255,255,.6); font-weight:700; font-size:14px;
+        display:flex; align-items:center; justify-content:center;
+        margin:0 auto 6px; position:relative; z-index:1;
+    }
+    .wiz-step.done  .wiz-dot { background:#fff; border-color:#fff; color:#7a3444; }
+    .wiz-step.active .wiz-dot { background:linear-gradient(135deg,#fff,#ffe); border-color:#fff; color:#7a3444; box-shadow:0 0 12px rgba(255,255,255,.5); }
+    .wiz-label { font-size:11px; color:rgba(255,255,255,.6); font-weight:600; text-transform:uppercase; letter-spacing:.3px; }
+    .wiz-step.done   .wiz-label,
+    .wiz-step.active .wiz-label { color:#fff; }
 
-        .setup-row { display:flex; gap:16px; flex-wrap:wrap; }
-        .setup-row .setup-field { flex:1; min-width:160px; }
+    /* Card */
+    .wiz-card { background:#fff; border-radius:18px; box-shadow:0 8px 40px rgba(0,0,0,.22);
+                padding:36px 36px 30px; }
+    .wiz-card-title { font-size:20px; font-weight:700; color:#333; margin-bottom:6px; display:flex; align-items:center; gap:10px; }
+    .wiz-card-desc  { font-size:14px; color:#777; margin-bottom:28px; line-height:1.6; }
 
-        .setup-field { margin-bottom:20px; }
-        .setup-field:last-child { margin-bottom:0; }
-        .setup-field label { display:block; font-size:12px; font-weight:700; color:#666; margin-bottom:6px; text-transform:uppercase; letter-spacing:.5px; }
+    /* Flash */
+    .flash { padding:12px 16px; border-radius:10px; margin-bottom:20px; font-size:14px; font-weight:600; }
+    .flash.error   { background:#fdf0f0; color:#b91c1c; border:1.5px solid #f5b8b8; }
+    .flash.success { background:#f0fdf4; color:#166534; border:1.5px solid #86efac; }
 
-        .setup-field input[type="text"],
-        .setup-field input[type="password"],
-        .setup-field input[type="number"] {
-            width:100%; box-sizing:border-box; padding:10px 14px;
-            border:1.5px solid #ddd; border-radius:8px; font-size:15px;
-            transition:border-color .2s; outline:none; background:#fafafa;
-        }
-        .setup-field input:focus { border-color:<?=$cor_primaria?>; background:#fff; }
+    /* Form */
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    .form-group { margin-bottom:18px; }
+    .form-group.full { grid-column:1/-1; }
+    .form-group label { display:block; font-size:11px; font-weight:700; text-transform:uppercase;
+                        letter-spacing:.4px; color:#666; margin-bottom:6px; }
+    .form-group input, .form-group select {
+        width:100%; padding:11px 14px; border:1.5px solid #ddd; border-radius:9px;
+        font-size:15px; outline:none; transition:border-color .2s; background:#fafafa;
+        font-family:inherit;
+    }
+    .form-group input:focus, .form-group select:focus { border-color:#7a3444; background:#fff; }
+    .pass-wrap { position:relative; }
+    .pass-wrap input { padding-right:42px; }
+    .pass-eye { position:absolute; right:12px; top:50%; transform:translateY(-50%);
+                cursor:pointer; font-size:17px; color:#bbb; }
 
-        .db-actions { display:flex; gap:10px; margin-top:20px; flex-wrap:wrap; }
-        .btn-outline {
-            padding:10px 22px; border-radius:8px; font-size:14px; font-weight:700;
-            cursor:pointer; border:2px solid <?=$cor_primaria?>; color:<?=$cor_primaria?>;
-            background:#fff; transition:all .2s;
-        }
-        .btn-outline:hover { background:<?=$cor_primaria?>; color:#fff; }
-        .btn-outline:disabled { opacity:.5; cursor:default; }
+    /* Driver selector */
+    .driver-pills { display:flex; gap:10px; margin-bottom:20px; }
+    .driver-pill  { flex:1; text-align:center; padding:12px 8px; border:2px solid #e0e0e0;
+                    border-radius:12px; cursor:pointer; font-size:13px; font-weight:700;
+                    color:#666; transition:all .2s; user-select:none; }
+    .driver-pill:hover  { border-color:#b06ab3; color:#7a3444; }
+    .driver-pill.active { border-color:#7a3444; background:#7a3444; color:#fff; }
+    .driver-pill input  { display:none; }
 
-        .db-status { margin-top:12px; padding:10px 14px; border-radius:8px; font-size:13px; font-weight:600; display:none; }
-        .db-status.ok    { background:#eafaf1; color:#1a7a45; border:1.5px solid #a8e6c0; }
-        .db-status.error { background:#fdf0f0; color:#b91c1c; border:1.5px solid #f5b8b8; }
+    /* AJAX buttons */
+    .ajax-btn { padding:9px 18px; border:1.5px solid #7a3444; border-radius:8px;
+                background:#fff; color:#7a3444; font-size:13px; font-weight:700;
+                cursor:pointer; transition:all .2s; }
+    .ajax-btn:hover { background:#7a3444; color:#fff; }
+    .ajax-btn:disabled { opacity:.5; cursor:not-allowed; }
+    .ajax-row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:18px; }
+    .ajax-msg { font-size:13px; font-weight:600; }
+    .ajax-msg.ok  { color:#166534; }
+    .ajax-msg.err { color:#b91c1c; }
 
-        /* Color pickers */
-        .color-row { display:flex; gap:24px; flex-wrap:wrap; }
-        .color-pick { flex:1; min-width:180px; }
-        .color-pick label { display:block; font-size:12px; font-weight:700; color:#666; margin-bottom:8px; text-transform:uppercase; letter-spacing:.5px; }
-        .color-pick-inner { display:flex; align-items:center; gap:12px; }
-        .color-pick input[type="color"] { width:52px; height:52px; border:none; border-radius:10px; cursor:pointer; padding:2px; background:#f0f0f0; }
-        .color-hex { flex:1; padding:9px 12px; border:1.5px solid #ddd; border-radius:8px; font-size:14px; font-family:monospace; outline:none; }
-        .color-preview-bar {
-            margin-top:16px; height:44px; border-radius:10px;
-            background: linear-gradient(135deg, <?=$cor_primaria?>, <?=$cor_destaque?>);
-            display:flex; align-items:center; justify-content:center;
-            color:#fff; font-size:13px; font-weight:600; transition:background .3s;
-        }
+    /* Submit */
+    .wiz-footer { display:flex; align-items:center; justify-content:space-between;
+                  margin-top:28px; padding-top:20px; border-top:1px solid #f0f0f0; }
+    .wiz-btn { padding:13px 32px; border:none; border-radius:10px;
+               background:linear-gradient(135deg,#7a3444,#b06ab3); color:#fff;
+               font-size:16px; font-weight:700; cursor:pointer; transition:opacity .2s; }
+    .wiz-btn:hover { opacity:.9; }
+    .wiz-hint { font-size:12px; color:#bbb; }
 
-        /* Logo upload */
-        .logo-upload-area {
-            border:2px dashed #ccc; border-radius:12px; padding:28px; text-align:center;
-            cursor:pointer; transition:border-color .2s,background .2s; position:relative;
-        }
-        .logo-upload-area:hover { border-color:<?=$cor_primaria?>; background:#faf5fa; }
-        .logo-upload-area input[type="file"] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
-        .logo-upload-area img#logo-preview { max-height:100px; max-width:100%; border-radius:8px; margin:0 auto 10px; display:block; }
-        .logo-upload-area p { margin:0; color:#888; font-size:14px; }
-        .logo-upload-area .upload-hint { margin-top:6px; font-size:12px; color:#bbb; }
-
-        /* Save row */
-        .setup-save-row { display:flex; justify-content:flex-end; gap:12px; margin-top:4px; }
-        .setup-btn {
-            padding:13px 36px; border:none; border-radius:10px; font-size:16px; font-weight:700;
-            color:#fff; cursor:pointer; background:linear-gradient(135deg, <?=$cor_primaria?>, <?=$cor_destaque?>);
-            box-shadow:0 2px 8px rgba(0,0,0,.12); transition:opacity .2s,transform .1s;
-        }
-        .setup-btn:hover { opacity:.88; transform:translateY(-1px); }
-
-        /* Alerts */
-        .alert { padding:14px 20px; border-radius:10px; font-size:14px; font-weight:600; display:flex; align-items:center; gap:10px; }
-        .alert-success { background:#eafaf1; color:#1a7a45; border:1.5px solid #a8e6c0; }
-        .alert-error   { background:#fdf0f0; color:#b91c1c; border:1.5px solid #f5b8b8; }
-        .alert-info    { background:#eff6ff; color:#1d4ed8; border:1.5px solid #bfdbfe; }
-
-        /* Disabled overlay for sections that need DB first */
-        .needs-db { position:relative; }
-        .needs-db.locked::after {
-            content:'🔒 Configure o banco de dados primeiro';
-            position:absolute; inset:0; background:rgba(255,255,255,.82);
-            display:flex; align-items:center; justify-content:center;
-            font-size:15px; font-weight:700; color:#888; border-radius:14px;
-            backdrop-filter:blur(2px);
-        }
-
-        /* password toggle */
-        .pass-wrap { position:relative; }
-        .pass-wrap input { padding-right:42px; }
-        .pass-toggle { position:absolute; right:12px; top:50%; transform:translateY(-50%); cursor:pointer; font-size:17px; user-select:none; color:#999; }
+    /* Color swatch */
+    .color-wrap { display:flex; align-items:center; gap:10px; }
+    .color-wrap input[type=color] { width:44px; height:44px; border:none; border-radius:8px;
+                                     cursor:pointer; padding:2px; }
+    .color-wrap input[type=text]  { flex:1; }
     </style>
 </head>
 <body>
-    <div class="setup-page-header" id="setup-header">
-        <h1>⚙️ Configurações do Salão</h1>
-        <?php if ($_db_ok): ?>
-        <a href="index.php" class="setup-back">← Voltar ao início</a>
-        <?php endif; ?>
+<div class="wiz-wrap">
+
+    <!-- Header -->
+    <div class="wiz-header">
+        <h1>✨ Bem-vindo ao Espaço da Beleza</h1>
+        <p>Configure o sistema em 4 passos rápidos para começar a usar</p>
     </div>
 
-    <div class="setup-wrap">
+    <!-- Progress -->
+    <div class="wiz-progress">
+    <?php for ($i=1; $i<=$total_steps; $i++):
+        $cls = ($i < $step) ? 'done' : (($i == $step) ? 'active' : '');
+    ?>
+        <div class="wiz-step <?=$cls?>">
+            <div class="wiz-dot"><?=$i < $step ? '✓' : $i?></div>
+            <div class="wiz-label"><?=$steps_labels[$i-1]?></div>
+        </div>
+    <?php endfor; ?>
+    </div>
 
-        <?php if ($is_first_run && !$_cfg_exists): ?>
-        <div class="alert alert-info">👋 Bem-vindo! Configure primeiro a conexão com o banco de dados para começar a usar o sistema.</div>
-        <?php endif; ?>
-        <?php if ($saved || $db_saved): ?>
-        <div class="alert alert-success">✔ Configurações salvas com sucesso!<?php if($db_saved && !$_db_ok): ?> Agora instale o banco de dados abaixo.<?php endif; ?></div>
-        <?php endif; ?>
-        <?php if ($error): ?>
-        <div class="alert alert-error">✖ <?=htmlspecialchars(urldecode($error))?></div>
-        <?php endif; ?>
-        <?php if ($db_error_msg): ?>
-        <div class="alert alert-error">⚠️ <?=$db_error_msg?></div>
-        <?php endif; ?>
+    <!-- Card -->
+    <div class="wiz-card">
 
-        <!-- ══ 1. BANCO DE DADOS ══ -->
-        <form method="POST" action="pdo/save_settings.php">
-        <div class="setup-card">
-            <div class="setup-card-header">🗄️ Banco de Dados</div>
-            <div class="setup-card-body">
-                <div class="setup-row">
-                    <div class="setup-field" style="flex:2;min-width:200px;">
-                        <label>Servidor (Host)</label>
-                        <input type="text" name="db_host" id="db_host"
-                               value="<?=htmlspecialchars($_saved_cfg['host'] ?? 'localhost')?>"
-                               placeholder="localhost">
-                    </div>
-                    <div class="setup-field" style="flex:1;min-width:100px;">
-                        <label>Porta</label>
-                        <input type="number" name="db_port" id="db_port"
-                               value="<?=htmlspecialchars($_saved_cfg['port'] ?? 3306)?>"
-                               placeholder="3306" min="1" max="65535">
-                    </div>
-                </div>
-                <div class="setup-field">
-                    <label>Nome do Banco de Dados</label>
-                    <input type="text" name="db_name" id="db_name"
-                           value="<?=htmlspecialchars($_saved_cfg['name'] ?? '')?>"
-                           placeholder="Ex: u123456789_salao">
-                </div>
-                <div class="setup-row">
-                    <div class="setup-field">
-                        <label>Usuário</label>
-                        <input type="text" name="db_user" id="db_user"
-                               value="<?=htmlspecialchars($_saved_cfg['user'] ?? '')?>"
-                               placeholder="Ex: u123456789_admin" autocomplete="username">
-                    </div>
-                    <div class="setup-field">
-                        <label>Senha</label>
-                        <div class="pass-wrap">
-                            <input type="password" name="db_pass" id="db_pass"
-                                   placeholder="Senha do banco" autocomplete="current-password">
-                            <span class="pass-toggle" id="pass-toggle">👁</span>
-                        </div>
-                    </div>
-                </div>
+    <?php if ($_flash): ?>
+        <div class="flash <?=$_flash['type']?>"><?=htmlspecialchars($_flash['msg'])?></div>
+    <?php endif; ?>
 
-                <div class="db-actions">
-                    <button type="button" class="btn-outline" id="btn-test">🔌 Testar Conexão</button>
-                    <button type="button" class="btn-outline" id="btn-install" <?=!$_db_ok?'disabled':''?>>
-                        🛠️ Instalar / Atualizar Banco
-                    </button>
-                </div>
-                <div class="db-status" id="db-status"></div>
+    <!-- ═══════════ STEP 1: BANCO DE DADOS ═══════════ -->
+    <?php if ($step === 1): ?>
+    <div class="wiz-card-title">🗄️ Banco de Dados</div>
+    <div class="wiz-card-desc">Escolha o tipo de banco de dados e informe as credenciais.
+    Use <strong>Testar Conexão</strong> para validar e depois <strong>Instalar Banco</strong> para criar as tabelas.</div>
 
-                <div class="setup-save-row" style="margin-top:20px;">
-                    <button type="submit" class="setup-btn" style="padding:11px 28px;font-size:14px;">
-                        💾 Salvar Credenciais
-                    </button>
+    <!-- Driver pills -->
+    <div class="driver-pills">
+        <label class="driver-pill active" id="pill-mysql">
+            <input type="radio" name="db_driver" value="mysql" checked> 🐬 MySQL / MariaDB
+        </label>
+        <label class="driver-pill" id="pill-sqlite">
+            <input type="radio" name="db_driver" value="sqlite"> 📄 SQLite
+        </label>
+        <label class="driver-pill" id="pill-pgsql">
+            <input type="radio" name="db_driver" value="pgsql"> 🐘 PostgreSQL
+        </label>
+    </div>
+
+    <form method="POST" action="pdo/wizard_action.php" id="form-db">
+        <input type="hidden" name="_action" value="save_db">
+        <input type="hidden" name="db_driver" id="hid-driver" value="mysql">
+
+        <!-- MySQL / PostgreSQL fields -->
+        <div id="fields-server">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Servidor (Host)</label>
+                    <input type="text" name="db_host" id="db_host" value="localhost">
+                </div>
+                <div class="form-group">
+                    <label>Porta</label>
+                    <input type="number" name="db_port" id="db_port" value="3306">
                 </div>
             </div>
-        </div>
-        </form>
-
-        <!-- ══ 2. IDENTIDADE ══ -->
-        <form method="POST" action="pdo/save_settings.php" enctype="multipart/form-data">
-        <div class="setup-card needs-db <?=!$_db_ok?'locked':''?>">
-            <div class="setup-card-header">🏪 Identidade do Salão</div>
-            <div class="setup-card-body">
-                <div class="setup-field">
-                    <label>Nome do Salão</label>
-                    <input type="text" name="nome_salao"
-                           value="<?=htmlspecialchars($salon_name)?>"
-                           placeholder="Ex: Espaço da Beleza Lucia Reis" <?=!$_db_ok?'disabled':''?>>
+            <div class="form-group">
+                <label>Nome do Banco de Dados</label>
+                <input type="text" name="db_name" id="db_name" placeholder="nome_do_banco">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Usuário</label>
+                    <input type="text" name="db_user" id="db_user" placeholder="usuario_db">
                 </div>
-                <div class="setup-field">
-                    <label>Localização (cidade, estado)</label>
-                    <input type="text" name="local_salao"
-                           value="<?=htmlspecialchars($salon_local)?>"
-                           placeholder="Ex: Santana do Livramento, RS" <?=!$_db_ok?'disabled':''?>>
+                <div class="form-group">
+                    <label>Senha</label>
+                    <div class="pass-wrap">
+                        <input type="password" name="db_pass" id="db_pass" placeholder="Senha do banco">
+                        <span class="pass-eye" onclick="toggle('db_pass',this)">👁</span>
+                    </div>
                 </div>
             </div>
         </div>
 
-        <!-- ══ 3. LOGO ══ -->
-        <div class="setup-card needs-db <?=!$_db_ok?'locked':''?>">
-            <div class="setup-card-header">🖼️ Logomarca do Salão</div>
-            <div class="setup-card-body">
-                <div class="logo-upload-area" id="logo-drop">
-                    <input type="file" name="logo" id="logo-input" accept="image/*" <?=!$_db_ok?'disabled':''?>>
-                    <img id="logo-preview" src="<?=htmlspecialchars($logo_path)?>" alt="Logo atual">
-                    <p id="upload-label">Clique ou arraste a imagem da logomarca aqui</p>
-                    <p class="upload-hint">Formatos aceitos: JPG, PNG, WebP, SVG — máx. 5 MB</p>
+        <!-- SQLite field -->
+        <div id="fields-sqlite" style="display:none">
+            <div class="form-group">
+                <label>Caminho do arquivo SQLite (deixe em branco para padrão)</label>
+                <input type="text" name="db_file" id="db_file" placeholder="Ex: /home/usuario/data/salao.sqlite">
+            </div>
+            <p style="font-size:13px;color:#888;margin-top:-12px;margin-bottom:16px;">
+                💡 Se em branco, será criado em <code>data/salao.sqlite</code> dentro do sistema.
+            </p>
+        </div>
+
+        <!-- Test / Install buttons -->
+        <div class="ajax-row">
+            <button type="button" class="ajax-btn" id="btn-test">🔌 Testar Conexão</button>
+            <button type="button" class="ajax-btn" id="btn-install" disabled>⚙️ Instalar Banco</button>
+            <span class="ajax-msg" id="ajax-result"></span>
+        </div>
+
+        <div class="wiz-footer">
+            <span class="wiz-hint">Teste e instale o banco antes de continuar</span>
+            <button type="submit" class="wiz-btn" id="btn-next" disabled>Próximo →</button>
+        </div>
+    </form>
+
+    <!-- ═══════════ STEP 2: ADMIN ═══════════ -->
+    <?php elseif ($step === 2): ?>
+    <div class="wiz-card-title">🔐 Conta Administrador</div>
+    <div class="wiz-card-desc">
+        O <strong>Admin</strong> tem acesso total ao sistema incluindo esta página de Configurações,
+        backup e gerenciamento de banco de dados. Guarde bem estas credenciais.
+    </div>
+    <form method="POST" action="pdo/wizard_action.php">
+        <input type="hidden" name="_action" value="save_admin">
+        <div class="form-group">
+            <label>Nome Completo</label>
+            <input type="text" name="nome" required placeholder="Seu nome completo" autofocus>
+        </div>
+        <div class="form-group">
+            <label>Login (usuário)</label>
+            <input type="text" name="login" required placeholder="Ex: admin" autocomplete="off">
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Senha (mín. 6 caracteres)</label>
+                <div class="pass-wrap">
+                    <input type="password" name="senha" id="adm-pass" required minlength="6">
+                    <span class="pass-eye" onclick="toggle('adm-pass',this)">👁</span>
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Confirmar Senha</label>
+                <div class="pass-wrap">
+                    <input type="password" name="confirmar" id="adm-confirm" required minlength="6">
+                    <span class="pass-eye" onclick="toggle('adm-confirm',this)">👁</span>
                 </div>
             </div>
         </div>
+        <div class="wiz-footer">
+            <span class="wiz-hint">Nível: Admin (acesso total)</span>
+            <button type="submit" class="wiz-btn">Próximo →</button>
+        </div>
+    </form>
 
-        <!-- ══ 4. CORES ══ -->
-        <div class="setup-card needs-db <?=!$_db_ok?'locked':''?>">
-            <div class="setup-card-header">🎨 Cores do Sistema</div>
-            <div class="setup-card-body">
-                <div class="color-row">
-                    <div class="color-pick">
-                        <label>Cor Primária</label>
-                        <div class="color-pick-inner">
-                            <input type="color" id="cp-picker" value="<?=$cor_primaria?>" <?=!$_db_ok?'disabled':''?>>
-                            <input type="text" class="color-hex" id="cp-hex" name="cor_primaria"
-                                   value="<?=$cor_primaria?>" maxlength="7" placeholder="#7a3444" <?=!$_db_ok?'disabled':''?>>
-                        </div>
-                    </div>
-                    <div class="color-pick">
-                        <label>Cor de Destaque</label>
-                        <div class="color-pick-inner">
-                            <input type="color" id="ca-picker" value="<?=$cor_destaque?>" <?=!$_db_ok?'disabled':''?>>
-                            <input type="text" class="color-hex" id="ca-hex" name="cor_destaque"
-                                   value="<?=$cor_destaque?>" maxlength="7" placeholder="#b06ab3" <?=!$_db_ok?'disabled':''?>>
-                        </div>
-                    </div>
+    <!-- ═══════════ STEP 3: MASTER ═══════════ -->
+    <?php elseif ($step === 3): ?>
+    <div class="wiz-card-title">👑 Conta Master</div>
+    <div class="wiz-card-desc">
+        O <strong>Master</strong> pode gerenciar serviços, produtos, atendentes, clientes e
+        adicionar usuários do tipo Agente. Ideal para a gerente do salão.
+    </div>
+    <form method="POST" action="pdo/wizard_action.php">
+        <input type="hidden" name="_action" value="save_master">
+        <div class="form-group">
+            <label>Nome Completo</label>
+            <input type="text" name="nome" required placeholder="Nome da gerente" autofocus>
+        </div>
+        <div class="form-group">
+            <label>Login (usuário)</label>
+            <input type="text" name="login" required placeholder="Ex: gerente" autocomplete="off">
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Senha (mín. 6 caracteres)</label>
+                <div class="pass-wrap">
+                    <input type="password" name="senha" id="mst-pass" required minlength="6">
+                    <span class="pass-eye" onclick="toggle('mst-pass',this)">👁</span>
                 </div>
-                <div class="color-preview-bar" id="preview-bar">Pré-visualização do gradiente</div>
             </div>
-        </div>
-
-        <div class="setup-save-row">
-            <button type="submit" class="setup-btn" <?php if(!$_db_ok) echo 'disabled'; ?>>
-                💾 Salvar Configurações
-            </button>
-        </div>
-        </form>
-
-        <!-- ══ 5. BACKUP ══ -->
-        <div class="setup-card needs-db <?=!$_db_ok?'locked':''?>">
-            <div class="setup-card-header">💾 Backup do Banco de Dados</div>
-            <div class="setup-card-body">
-                <p style="margin:0 0 16px;color:#555;font-size:14px;line-height:1.6;">
-                    Gera um arquivo <strong>.sql</strong> completo com todas as tabelas e dados do sistema.
-                    Salve-o em um local seguro periodicamente para evitar perda de informações.
-                </p>
-                <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
-                    <a href="pdo/backup_db.php" class="setup-btn"
-                       style="text-decoration:none;padding:12px 28px;font-size:15px;<?=!$_db_ok?'pointer-events:none;opacity:.5;':''?>"
-                       <?=!$_db_ok?'aria-disabled="true"':''?>>
-                        ⬇️ Baixar Backup SQL
-                    </a>
-                    <span style="font-size:12px;color:#aaa;">
-                        Arquivo: backup_<?=defined('DB_NAME')?DB_NAME:'database'?>_<?=date('Y-m-d')?>.sql
-                    </span>
+            <div class="form-group">
+                <label>Confirmar Senha</label>
+                <div class="pass-wrap">
+                    <input type="password" name="confirmar" id="mst-confirm" required minlength="6">
+                    <span class="pass-eye" onclick="toggle('mst-confirm',this)">👁</span>
                 </div>
             </div>
         </div>
+        <div class="wiz-footer">
+            <span class="wiz-hint">Nível: Master (gerência do salão)</span>
+            <button type="submit" class="wiz-btn">Próximo →</button>
+        </div>
+    </form>
 
-    </div><!-- /.setup-wrap -->
+    <!-- ═══════════ STEP 4: IDENTIDADE ═══════════ -->
+    <?php elseif ($step === 4): ?>
+    <div class="wiz-card-title">💅 Identidade do Salão</div>
+    <div class="wiz-card-desc">
+        Personalize o nome, endereço, logo e as cores do sistema. Você pode alterar isso depois nas Configurações.
+    </div>
+    <form method="POST" action="pdo/wizard_action.php" enctype="multipart/form-data">
+        <input type="hidden" name="_action" value="save_identity">
+        <div class="form-group">
+            <label>Nome do Salão</label>
+            <input type="text" name="nome_salao" required value="Espaço da Beleza" placeholder="Nome do seu salão" autofocus>
+        </div>
+        <div class="form-group">
+            <label>Endereço / Localização</label>
+            <input type="text" name="local_salao" placeholder="Rua, número, cidade">
+        </div>
+        <div class="form-group">
+            <label>Logo (PNG, JPG, SVG — opcional)</label>
+            <input type="file" name="logo" accept="image/*" style="background:#fff;padding:8px;">
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Cor Primária (fundo/menu)</label>
+                <div class="color-wrap">
+                    <input type="color" id="cp-pick" value="#7a3444" oninput="document.getElementById('cp-txt').value=this.value">
+                    <input type="text"  id="cp-txt"  name="cor_primaria" value="#7a3444" oninput="document.getElementById('cp-pick').value=this.value">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Cor Destaque (botões/acentos)</label>
+                <div class="color-wrap">
+                    <input type="color" id="cd-pick" value="#b06ab3" oninput="document.getElementById('cd-txt').value=this.value">
+                    <input type="text"  id="cd-txt"  name="cor_destaque" value="#b06ab3" oninput="document.getElementById('cd-pick').value=this.value">
+                </div>
+            </div>
+        </div>
+        <div class="wiz-footer">
+            <span class="wiz-hint">Quase lá! 🎉</span>
+            <button type="submit" class="wiz-btn">✅ Concluir Setup</button>
+        </div>
+    </form>
+    <?php endif; ?>
 
-    <script>
-    $(document).ready(function(){
+    </div><!-- /.wiz-card -->
+</div><!-- /.wiz-wrap -->
 
-        /* ── Toggle de senha ── */
-        $('#pass-toggle').click(function(){
-            var t = $('#db_pass');
-            t.attr('type', t.attr('type') === 'password' ? 'text' : 'password');
-            $(this).text(t.attr('type') === 'password' ? '👁' : '🙈');
-        });
+<script>
+/* ── Password toggle ── */
+function toggle(id, el) {
+    var i = document.getElementById(id);
+    i.type = i.type === 'password' ? 'text' : 'password';
+    el.textContent = i.type === 'password' ? '👁' : '🙈';
+}
 
-        /* ── Testar conexão ── */
-        function getDbFields(){
-            return {
-                db_host: $('#db_host').val(),
-                db_name: $('#db_name').val(),
-                db_user: $('#db_user').val(),
-                db_pass: $('#db_pass').val(),
-                db_port: $('#db_port').val()
-            };
-        }
-        function showStatus(ok, msg){
-            $('#db-status').removeClass('ok error').addClass(ok?'ok':'error').text(msg).show();
-        }
-
-        $('#btn-test').click(function(){
-            $(this).prop('disabled',true).text('Testando...');
-            $.post('pdo/test_db.php', getDbFields(), function(r){
-                showStatus(r.ok, r.ok ? '✔ '+r.msg : '✖ '+r.msg);
-                if(r.ok) $('#btn-install').prop('disabled', false);
-            }, 'json').fail(function(){
-                showStatus(false, 'Erro ao contactar o servidor.');
-            }).always(function(){
-                $('#btn-test').prop('disabled',false).text('🔌 Testar Conexão');
-            });
-        });
-
-        /* ── Instalar banco ── */
-        $('#btn-install').click(function(){
-            if(!confirm('Isso criará as tabelas no banco selecionado. Continuar?')) return;
-            $(this).prop('disabled',true).text('Instalando...');
-            $.post('pdo/install_db.php', {}, function(r){
-                showStatus(r.ok, r.ok ? '✔ '+r.msg : '✖ '+r.msg);
-            }, 'json').fail(function(){
-                showStatus(false, 'Erro ao executar a instalação.');
-            }).always(function(){
-                $('#btn-install').prop('disabled',false).text('🛠️ Instalar / Atualizar Banco');
-            });
-        });
-
-        /* ── Color pickers ── */
-        function syncPicker(pickerId, hexId){
-            $(pickerId).on('input', function(){ $(hexId).val(this.value); updatePreview(); });
-            $(hexId).on('input', function(){
-                if(/^#[0-9a-fA-F]{6}$/.test(this.value)){ $(pickerId).val(this.value); updatePreview(); }
-            });
-        }
-        syncPicker('#cp-picker','#cp-hex');
-        syncPicker('#ca-picker','#ca-hex');
-        $('#ca-picker,#ca-hex').on('input', updatePreview);
-
-        function updatePreview(){
-            var p = $('#cp-hex').val() || '<?=$cor_primaria?>';
-            var a = $('#ca-hex').val() || '<?=$cor_destaque?>';
-            var g = 'linear-gradient(135deg,'+p+','+a+')';
-            $('#preview-bar, .setup-card-header, .setup-page-header, .setup-btn').css('background', g);
-        }
-
-        /* ── Preview logo ── */
-        $('#logo-input').on('change', function(){
-            var f = this.files[0];
-            if(!f) return;
-            var r = new FileReader();
-            r.onload = function(e){ $('#logo-preview').attr('src',e.target.result); $('#upload-label').text(f.name); };
-            r.readAsDataURL(f);
-        });
+/* ── Driver pills ── */
+document.querySelectorAll('.driver-pill').forEach(function(pill) {
+    pill.addEventListener('click', function() {
+        document.querySelectorAll('.driver-pill').forEach(p => p.classList.remove('active'));
+        this.classList.add('active');
+        var v = this.querySelector('input').value;
+        document.getElementById('hid-driver').value = v;
+        document.getElementById('fields-server').style.display  = v === 'sqlite' ? 'none' : 'block';
+        document.getElementById('fields-sqlite').style.display  = v === 'sqlite' ? 'block' : 'none';
+        if (v === 'pgsql') document.getElementById('db_port').value = 5432;
+        if (v === 'mysql') document.getElementById('db_port').value = 3306;
+        // Reset test state
+        document.getElementById('btn-install').disabled = true;
+        document.getElementById('btn-next').disabled = true;
+        document.getElementById('ajax-result').textContent = '';
+        document.getElementById('ajax-result').className = 'ajax-msg';
     });
-    </script>
+});
+
+/* ── AJAX Test ── */
+function getDbParams() {
+    var d   = document.getElementById('hid-driver').value;
+    var p   = new URLSearchParams();
+    p.set('db_driver', d);
+    if (d === 'sqlite') {
+        p.set('db_file', document.getElementById('db_file').value);
+    } else {
+        p.set('db_host', document.getElementById('db_host').value);
+        p.set('db_port', document.getElementById('db_port').value);
+        p.set('db_name', document.getElementById('db_name').value);
+        p.set('db_user', document.getElementById('db_user').value);
+        p.set('db_pass', document.getElementById('db_pass').value);
+    }
+    return p;
+}
+
+document.getElementById('btn-test').addEventListener('click', function() {
+    var btn = this;
+    var msg = document.getElementById('ajax-result');
+    btn.disabled = true;
+    btn.textContent = '⏳ Testando…';
+    msg.textContent = ''; msg.className = 'ajax-msg';
+
+    fetch('pdo/test_db.php', {method:'POST', body: getDbParams()})
+    .then(r => r.json()).then(function(d) {
+        msg.textContent = d.msg;
+        msg.className   = 'ajax-msg ' + (d.ok ? 'ok' : 'err');
+        document.getElementById('btn-install').disabled = !d.ok;
+        if (!d.ok) document.getElementById('btn-next').disabled = true;
+    }).catch(function() {
+        msg.textContent = '❌ Erro de comunicação.';
+        msg.className   = 'ajax-msg err';
+    }).finally(function() {
+        btn.disabled = false;
+        btn.textContent = '🔌 Testar Conexão';
+    });
+});
+
+document.getElementById('btn-install').addEventListener('click', function() {
+    var btn = this;
+    var msg = document.getElementById('ajax-result');
+    btn.disabled = true;
+    btn.textContent = '⏳ Instalando…';
+
+    fetch('pdo/install_db.php', {method:'POST', body: getDbParams()})
+    .then(r => r.json()).then(function(d) {
+        msg.textContent = d.msg;
+        msg.className   = 'ajax-msg ' + (d.ok ? 'ok' : 'err');
+        document.getElementById('btn-next').disabled = !d.ok;
+    }).catch(function() {
+        msg.textContent = '❌ Erro de comunicação.';
+        msg.className   = 'ajax-msg err';
+    }).finally(function() {
+        btn.disabled = false;
+        btn.textContent = '⚙️ Instalar Banco';
+    });
+});
+</script>
 </body>
 </html>
+<?php
+
+} else {
+    /* ════════════════════════════════════════════════════════════
+       MODO RUNTIME — configurações (requer login Admin)
+    ════════════════════════════════════════════════════════════ */
+    if (!isset($_SESSION['user_id']) || $_SESSION['nivel'] !== 'admin') {
+        header('Location: login.php?erro=sem_permissao&redirect=setup.php');
+        exit;
+    }
+
+    include_once 'inc/settings.php';
+
+    // Carrega usuários
+    include_once 'pdo/DAO/user_DAO.php';
+    $udao    = new user_DAO();
+    $usuarios = [];
+    try { $usuarios = $udao->list_all($conn); } catch (Exception $e) {}
+
+    $driver_atual = defined('DB_DRIVER') ? DB_DRIVER : 'mysql';
+?>
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="icon" href="<?=$salon_icon?>">
+    <link href="css/fonts.css" rel="stylesheet">
+    <link href="css/main.css" rel="stylesheet">
+    <link href="css/theme.php" rel="stylesheet">
+    <title>Configurações — <?=htmlspecialchars($salon_name)?></title>
+    <style>
+    .setup-wrap { max-width:860px; margin:0 auto; padding:30px 16px 60px; display:flex; flex-direction:column; gap:24px; }
+    .setup-card { background:#fff; border-radius:16px; box-shadow:0 4px 20px rgba(0,0,0,.08); overflow:hidden; }
+    .setup-card-header { background:linear-gradient(135deg,var(--cor-primaria,#7a3444),var(--cor-destaque,#b06ab3)); color:#fff; padding:16px 24px; font-size:16px; font-weight:700; display:flex; align-items:center; gap:10px; }
+    .setup-card-body { padding:24px; }
+    .form-row { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+    .form-group { margin-bottom:16px; }
+    .form-group.full { grid-column:1/-1; }
+    .form-group label { display:block; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.4px; color:#666; margin-bottom:6px; }
+    .form-group input, .form-group select { width:100%; padding:10px 13px; border:1.5px solid #ddd; border-radius:8px; font-size:14px; outline:none; transition:border-color .2s; }
+    .form-group input:focus, .form-group select:focus { border-color:var(--cor-primaria,#7a3444); }
+    .setup-btn { padding:10px 24px; background:linear-gradient(135deg,var(--cor-primaria,#7a3444),var(--cor-destaque,#b06ab3)); color:#fff; border:none; border-radius:9px; font-size:14px; font-weight:700; cursor:pointer; display:inline-block; }
+    .setup-btn:hover { opacity:.9; }
+    .btn-sm { padding:6px 14px; font-size:13px; }
+    .btn-danger { background:linear-gradient(135deg,#b91c1c,#dc2626); }
+
+    /* Flash */
+    .flash { padding:12px 16px; border-radius:10px; margin-bottom:20px; font-size:14px; font-weight:600; }
+    .flash.error   { background:#fdf0f0; color:#b91c1c; border:1.5px solid #f5b8b8; }
+    .flash.success { background:#f0fdf4; color:#166534; border:1.5px solid #86efac; }
+
+    /* Users table */
+    .users-table { width:100%; border-collapse:collapse; font-size:14px; }
+    .users-table th { background:#f8f8f8; color:#555; text-transform:uppercase; font-size:11px; letter-spacing:.3px; padding:10px 12px; text-align:left; }
+    .users-table td { padding:10px 12px; border-top:1px solid #f0f0f0; }
+    .nivel-badge { display:inline-block; padding:3px 10px; border-radius:20px; font-size:11px; font-weight:700; text-transform:uppercase; }
+    .nivel-admin  { background:#7a3444; color:#fff; }
+    .nivel-master { background:#b06ab3; color:#fff; }
+    .nivel-agente { background:#e5e7eb; color:#555; }
+
+    /* Color wrap */
+    .color-wrap { display:flex; align-items:center; gap:10px; }
+    .color-wrap input[type=color] { width:44px; height:44px; border:none; border-radius:8px; cursor:pointer; padding:2px; }
+    .color-wrap input[type=text]  { flex:1; }
+
+    /* pass toggle */
+    .pass-wrap { position:relative; }
+    .pass-wrap input { padding-right:42px; }
+    .pass-eye { position:absolute; right:12px; top:50%; transform:translateY(-50%); cursor:pointer; font-size:17px; color:#bbb; }
+
+    /* Topbar */
+    .setup-topbar { display:flex; align-items:center; justify-content:space-between; max-width:860px; margin:0 auto; padding:20px 16px 0; }
+    .setup-topbar a { color:#fff; text-decoration:none; font-size:14px; font-weight:600; opacity:.85; }
+    .setup-topbar a:hover { opacity:1; }
+    body { background:linear-gradient(135deg,#7a3444,#b06ab3) fixed; min-height:100vh; font-family:'Roboto',sans-serif; }
+    </style>
+</head>
+<body>
+<div class="setup-topbar">
+    <a href="index.php">← Voltar ao início</a>
+    <span style="color:#fff;font-size:13px;opacity:.8">Logado como <strong><?=htmlspecialchars($_SESSION['nome'])?></strong> (<?=$_SESSION['nivel']?>) · <a href="pdo/do_logout.php">Sair</a></span>
+</div>
+
+<div class="setup-wrap">
+
+    <?php if ($_flash): ?>
+    <div class="flash <?=$_flash['type']?>"><?=htmlspecialchars($_flash['msg'])?></div>
+    <?php endif; ?>
+
+    <!-- ══ 1. BANCO DE DADOS (informativo) ══ -->
+    <div class="setup-card">
+        <div class="setup-card-header">🗄️ Banco de Dados</div>
+        <div class="setup-card-body">
+            <p style="font-size:14px;color:#555;line-height:1.7;margin-bottom:16px;">
+                Driver atual: <strong><?=htmlspecialchars(strtoupper($driver_atual))?></strong>
+                <?php if (defined('DB_HOST')): ?>· Servidor: <strong><?=htmlspecialchars(DB_HOST)?></strong>
+                · Banco: <strong><?=htmlspecialchars(defined('DB_NAME') ? DB_NAME : '')?></strong><?php endif; ?>
+                <?php if ($driver_atual === 'sqlite' && defined('DB_FILE')): ?>· Arquivo: <code><?=htmlspecialchars(DB_FILE)?></code><?php endif; ?>
+            </p>
+            <div style="display:flex;gap:12px;flex-wrap:wrap;">
+                <button class="setup-btn btn-sm" onclick="document.getElementById('db-test-result').textContent='Testando…';
+                    fetch('pdo/test_db.php',{method:'POST'}).then(r=>r.json()).then(d=>{var m=document.getElementById('db-test-result');m.textContent=d.msg;m.style.color=d.ok?'green':'red';});">
+                    🔌 Testar Conexão
+                </button>
+                <button class="setup-btn btn-sm" onclick="if(confirm('Instalar/atualizar banco de dados?'))
+                    fetch('pdo/install_db.php',{method:'POST'}).then(r=>r.json()).then(d=>{var m=document.getElementById('db-test-result');m.textContent=d.msg;m.style.color=d.ok?'green':'red';});">
+                    ⚙️ Instalar / Atualizar
+                </button>
+                <span id="db-test-result" style="font-size:13px;font-weight:600;align-self:center;"></span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ══ 2. IDENTIDADE ══ -->
+    <div class="setup-card">
+        <div class="setup-card-header">💅 Identidade do Salão</div>
+        <div class="setup-card-body">
+        <form method="POST" action="pdo/wizard_action.php" enctype="multipart/form-data">
+            <input type="hidden" name="_action" value="update_identity">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Nome do Salão</label>
+                    <input type="text" name="nome_salao" value="<?=htmlspecialchars($salon_name)?>">
+                </div>
+                <div class="form-group">
+                    <label>Endereço / Localização</label>
+                    <input type="text" name="local_salao" value="<?=htmlspecialchars($salon_local)?>">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Logo (PNG, JPG, SVG)</label>
+                <input type="file" name="logo" accept="image/*" style="padding:8px;">
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Cor Primária</label>
+                    <div class="color-wrap">
+                        <input type="color" id="cp2-pick" value="<?=$cor_primaria?>" oninput="document.getElementById('cp2-txt').value=this.value">
+                        <input type="text"  id="cp2-txt"  name="cor_primaria" value="<?=$cor_primaria?>" oninput="document.getElementById('cp2-pick').value=this.value">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Cor Destaque</label>
+                    <div class="color-wrap">
+                        <input type="color" id="cd2-pick" value="<?=$cor_destaque?>" oninput="document.getElementById('cd2-txt').value=this.value">
+                        <input type="text"  id="cd2-txt"  name="cor_destaque" value="<?=$cor_destaque?>" oninput="document.getElementById('cd2-pick').value=this.value">
+                    </div>
+                </div>
+            </div>
+            <div style="text-align:right">
+                <button type="submit" class="setup-btn">💾 Salvar Identidade</button>
+            </div>
+        </form>
+        </div>
+    </div>
+
+    <!-- ══ 3. USUÁRIOS ══ -->
+    <div class="setup-card">
+        <div class="setup-card-header">👥 Usuários do Sistema</div>
+        <div class="setup-card-body">
+            <p style="font-size:13px;color:#777;margin-bottom:18px;line-height:1.6;">
+                <strong>Admin</strong> — acesso total incluindo configurações.<br>
+                <strong>Master</strong> — gerencia serviços, produtos, atendentes e agentes.<br>
+                <strong>Agente</strong> — apenas registra atendimentos e consulta informações.
+            </p>
+
+            <!-- Tabela de usuários -->
+            <?php if ($usuarios): ?>
+            <table class="users-table" style="margin-bottom:24px;">
+                <thead>
+                    <tr><th>Nome</th><th>Login</th><th>Nível</th><th>Status</th><th></th></tr>
+                </thead>
+                <tbody>
+                <?php foreach ($usuarios as $u): ?>
+                <tr>
+                    <td><?=htmlspecialchars($u->nome)?></td>
+                    <td><?=htmlspecialchars($u->login)?></td>
+                    <td><span class="nivel-badge nivel-<?=$u->nivel?>"><?=ucfirst($u->nivel)?></span></td>
+                    <td><?=$u->ativo ? '<span style="color:#166534;font-weight:600;">Ativo</span>' : '<span style="color:#b91c1c;">Inativo</span>'?></td>
+                    <td>
+                    <?php if ($u->nivel === 'agente' && $u->id != $_SESSION['user_id']): ?>
+                        <form method="POST" action="pdo/wizard_action.php" style="display:inline" onsubmit="return confirm('Excluir agente <?=htmlspecialchars($u->nome)?>?')">
+                            <input type="hidden" name="_action" value="delete_user">
+                            <input type="hidden" name="id" value="<?=$u->id?>">
+                            <button type="submit" class="setup-btn btn-sm btn-danger">✕</button>
+                        </form>
+                    <?php endif; ?>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php endif; ?>
+
+            <!-- Adicionar usuário -->
+            <details style="margin-top:8px;">
+                <summary style="cursor:pointer;font-weight:700;font-size:14px;color:#7a3444;user-select:none;">➕ Adicionar Usuário</summary>
+                <form method="POST" action="pdo/wizard_action.php" style="margin-top:16px;">
+                    <input type="hidden" name="_action" value="add_user">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Nome Completo</label>
+                            <input type="text" name="nome" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Login</label>
+                            <input type="text" name="login" required autocomplete="off">
+                        </div>
+                    </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Senha (mín. 6 caracteres)</label>
+                            <input type="password" name="senha" required minlength="6">
+                        </div>
+                        <div class="form-group">
+                            <label>Nível</label>
+                            <select name="nivel">
+                                <option value="agente">Agente</option>
+                                <?php if ($_SESSION['nivel'] === 'admin'): ?>
+                                <option value="master">Master</option>
+                                <option value="admin">Admin</option>
+                                <?php endif; ?>
+                            </select>
+                        </div>
+                    </div>
+                    <div style="text-align:right">
+                        <button type="submit" class="setup-btn">Criar Usuário</button>
+                    </div>
+                </form>
+            </details>
+        </div>
+    </div>
+
+    <!-- ══ 4. MINHA SENHA ══ -->
+    <div class="setup-card">
+        <div class="setup-card-header">🔑 Alterar Minha Senha</div>
+        <div class="setup-card-body">
+        <form method="POST" action="pdo/wizard_action.php">
+            <input type="hidden" name="_action" value="change_password">
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Senha Atual</label>
+                    <div class="pass-wrap">
+                        <input type="password" name="senha_atual" id="p-atual" required>
+                        <span class="pass-eye" onclick="toggle('p-atual',this)">👁</span>
+                    </div>
+                </div>
+                <div class="form-group" style="grid-column:1/-1"></div>
+                <div class="form-group">
+                    <label>Nova Senha</label>
+                    <div class="pass-wrap">
+                        <input type="password" name="nova_senha" id="p-nova" required minlength="6">
+                        <span class="pass-eye" onclick="toggle('p-nova',this)">👁</span>
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Confirmar Nova Senha</label>
+                    <div class="pass-wrap">
+                        <input type="password" name="confirmar" id="p-confirm" required minlength="6">
+                        <span class="pass-eye" onclick="toggle('p-confirm',this)">👁</span>
+                    </div>
+                </div>
+            </div>
+            <div style="text-align:right">
+                <button type="submit" class="setup-btn">🔒 Alterar Senha</button>
+            </div>
+        </form>
+        </div>
+    </div>
+
+    <!-- ══ 5. BACKUP ══ -->
+    <div class="setup-card">
+        <div class="setup-card-header">💾 Backup do Banco de Dados</div>
+        <div class="setup-card-body">
+            <p style="margin:0 0 16px;color:#555;font-size:14px;line-height:1.6;">
+                Gera um arquivo <strong>.sql</strong> completo com todas as tabelas e dados do sistema.
+                Salve periodicamente em local seguro.
+            </p>
+            <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+                <a href="pdo/backup_db.php" class="setup-btn" style="text-decoration:none;padding:10px 24px;">
+                    ⬇️ Baixar Backup SQL
+                </a>
+                <span style="font-size:12px;color:#aaa;">
+                    backup_<?=defined('DB_NAME')?DB_NAME:'db'?>_<?=date('Y-m-d')?>.sql
+                </span>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /.setup-wrap -->
+
+<script>
+function toggle(id, el) {
+    var i = document.getElementById(id);
+    i.type = i.type === 'password' ? 'text' : 'password';
+    el.textContent = i.type === 'password' ? '👁' : '🙈';
+}
+</script>
+</body>
+</html>
+<?php } ?>

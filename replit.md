@@ -1,39 +1,42 @@
-# Espaço da Beleza - Beauty Salon Management System
-
-## Overview
-A PHP web application for a beauty salon to manage clients, services, appointments, inventory, attendants, and financial data — with full branding customization via a setup wizard.
+# Espaço da Beleza — Beauty Salon Management System
 
 ## Run & Operate
 - **Start:** `bash start.sh` (starts MySQL 8.0 + PHP server on port 5000)
-- **Setup/branding:** visit `/setup.php`
+- **First visit:** wizard automático em `/setup.php` (4 steps: DB → Admin → Master → Identidade)
+- **Login:** `/login.php`
 - **Required env vars:** none (MySQL runs locally via Unix socket)
 
 ## Stack
 - PHP 8.2 (built-in server, port 5000)
 - MySQL 8.0 — socket `/tmp/mysql.sock`, DB `database`, user `root` (no password)
+- Multi-driver PDO: MySQL/MariaDB, SQLite, PostgreSQL
 - jQuery 3.5 + Select2 + Lord Icons (vendor files in `js/`)
 - Plain CSS (`css/main.css` — CRLF line endings, append-only via bash)
 
 ## Where Things Live
-- `index.php` — home/dashboard with menu and notifications
-- `setup.php` — branding wizard (name, location, logo, colors)
-- `costumers.php / services.php / products.php / treatments.php / attendants.php` — list pages
-- `financial_data.php` — weekly cash tracking
-- `monthly_summary.php` — monthly revenue/count summary
-- `client_history.php?id=N` — per-client appointment history
-- `new_*.php` — create-record forms
-- `pdo/` — DB layer: `connection.php`, `classes/`, `DAO/`, action scripts
-- `inc/settings.php` — settings loader (included in every page)
-- `css/theme.php` — dynamic stylesheet that applies saved brand colors
-- `css/main.css` — base styles (CRLF endings — use bash `cat >>` to append)
-- `sql/database.sql` — base schema
+- `setup.php` — wizard (first run) + runtime config (admin only)
+- `login.php` — login page (any user level)
+- `pdo/do_login.php`, `pdo/do_logout.php` — auth actions
+- `pdo/wizard_action.php` — handles all wizard step POST submissions
+- `inc/auth.php` — session + access level middleware (included at top of every page)
+- `inc/settings.php` — loads salon settings from DB (included after auth.php)
+- `pdo/connection.php` — multi-driver PDO factory (reads config.php constants)
+- `pdo/DAO/user_DAO.php` — user CRUD (create, find, list, delete, change_password)
+- `pdo/DAO/settings_DAO.php` — settings get_all/set with multi-driver upsert
+- `css/theme.php` — dynamic CSS from DB colors
+- `config.php` — gitignored; contains DB_DRIVER, DB_HOST, DB_NAME, DB_USER, DB_PASS + SETUP_COMPLETE flag
+- `config.sample.php` — template for shared hosting
+- `sql/database.sql` — base schema (does not include `usuarios` table — created by wizard/start.sh)
 
 ## Architecture Decisions
-- Settings stored as key-value rows in `configuracoes` table; loaded via `inc/settings.php` on every page
-- `css/theme.php` is a PHP file served as `text/css` that reads colors from DB and generates CSS overrides — linked after `main.css` on every page
-- Logo uploaded via setup form → saved as `img/salon_logo.<ext>` → path stored in `configuracoes`
-- `atendente_id` column added to `atendimentos` via idempotent migration in `start.sh` (checks `SHOW COLUMNS` before ALTER)
-- `start.sh` runs all migrations on every boot (CREATE TABLE IF NOT EXISTS + column check)
+- **Wizard-first flow:** if `SETUP_COMPLETE` is not defined in config.php, ALL pages redirect to `/setup.php`. After wizard, flag is appended to config.php.
+- **3-level auth:** Admin > Master > Agente — stored in `usuarios` table with bcrypt passwords. Sessions are PHP file-based (works without DB for auth check).
+- **Multi-driver PDO:** connection.php reads `DB_DRIVER` ('mysql'/'sqlite'/'pgsql') from config.php. install_db.php generates driver-appropriate SQL for all 3 drivers.
+- **settings_DAO.set()** detects PDO driver at runtime and uses the correct upsert syntax (ON DUPLICATE KEY / INSERT OR REPLACE / ON CONFLICT).
+- **Access control:** pages set `$_auth_nivel = 'master'` before including auth.php. pdo/ action files use inline session check + nivel array. `can($nivel)` helper available globally.
+- Settings stored as key-value rows in `configuracoes` table; loaded via `inc/settings.php` on every page.
+- `atendente_id` column added to `atendimentos` via idempotent migration in `start.sh`.
+- `start.sh` also auto-creates config.php and `usuarios` table for Replit environment.
 
 ## Product
 - Register and manage clients, services, products (inventory), and attendants
@@ -43,7 +46,9 @@ A PHP web application for a beauty salon to manage clients, services, appointmen
 - Per-client history page with spend stats and full appointment list
 - Live search bars on all list pages; filter by client/attendant/date on treatments
 - Block deletion of services/products used in existing appointments
-- **Setup wizard** to customize salon name, location, logo, and theme colors
+- **Setup wizard** (4 steps): DB config, Admin account, Master account, Salon identity
+- **Login system** with 3 levels: Admin (full access + setup), Master (manage data + agents), Agente (appointments only)
+- **Backup** (SQL dump via PHP) inside Configurações — no phpMyAdmin needed
 
 ## User Preferences
 - Language: Portuguese (pt-BR) throughout the UI
@@ -53,10 +58,8 @@ A PHP web application for a beauty salon to manage clients, services, appointmen
 ## Gotchas
 - `css/main.css` has CRLF line endings — never use the edit tool on it; always `cat >> css/main.css`
 - MySQL binary: `/nix/store/s2lbn1axpc79kwnc829k5idkwabfq459-mysql-8.0.42/bin/`
-- MySQL data dir: `/home/runner/mysql8-data/` — if missing, `start.sh` re-initializes
+- MySQL data dir: `/home/runner/mysql8-data/`
 - `inc/settings.php` uses `$_sc` / `$_sdao` / `$_settings` to avoid variable name collisions
-
-## Pointers
-- DB schema: `sql/database.sql`
-- Settings DAO: `pdo/DAO/settings_DAO.php`
-- Theme CSS: `css/theme.php`
+- On Replit: config.php is created by start.sh WITHOUT `SETUP_COMPLETE`, so wizard runs on first visit
+- Pages starting with `<!DOCTYPE html>` (costumers.php, services.php, new_*.php) have auth.php prepended as `<?php ... ?>` before DOCTYPE
+- SQLite file stored in `data/salao.sqlite` (auto-created by connection.php if missing)

@@ -1,4 +1,5 @@
 <?php
+session_start(); if(!isset($_SESSION['user_id'])){header('Location: ../login.php');exit;}
     include_once ("connection.php");
     include_once ("classes/treatment.php");
     include_once ("DAO/treatment_DAO.php");

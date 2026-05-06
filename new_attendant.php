@@ -1,3 +1,4 @@
+<?php $_auth_nivel = 'master'; include_once 'inc/auth.php'; include_once 'inc/settings.php'; ?>
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>

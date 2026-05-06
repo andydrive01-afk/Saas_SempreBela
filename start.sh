@@ -40,6 +40,7 @@ if ! $MYSQL_BIN/mysql --socket=/tmp/mysql.sock -u root database -e "SHOW TABLES;
 fi
 
 echo "Applying schema migrations..."
+
 $MYSQL_BIN/mysql --socket=/tmp/mysql.sock -u root database -e "
     CREATE TABLE IF NOT EXISTS atendentes (
         id INT NOT NULL AUTO_INCREMENT,
@@ -56,12 +57,31 @@ if ! $MYSQL_BIN/mysql --socket=/tmp/mysql.sock -u root database -e "SHOW COLUMNS
     " 2>/dev/null
     echo "Column atendente_id added."
 fi
+
+# Tabela de configurações
+$MYSQL_BIN/mysql --socket=/tmp/mysql.sock -u root database -e "
+    CREATE TABLE IF NOT EXISTS configuracoes (
+        chave VARCHAR(80) NOT NULL,
+        valor TEXT,
+        PRIMARY KEY (chave)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+" 2>/dev/null
+
+# Tabela de usuários (auth)
+$MYSQL_BIN/mysql --socket=/tmp/mysql.sock -u root database -e "
+    CREATE TABLE IF NOT EXISTS usuarios (
+        id INT NOT NULL AUTO_INCREMENT,
+        nome VARCHAR(80) NOT NULL,
+        login VARCHAR(80) NOT NULL UNIQUE,
+        senha_hash VARCHAR(255) NOT NULL,
+        nivel ENUM('admin','master','agente') NOT NULL DEFAULT 'agente',
+        ativo TINYINT(1) NOT NULL DEFAULT 1,
+        criado_em DATETIME DEFAULT CURRENT_TIMESTAMP,
+        PRIMARY KEY (id)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+" 2>/dev/null
+
 echo "Migrations complete."
-
-
-# Migrate settings table
-$MYSQL_BIN/mysql --socket=/tmp/mysql.sock -u root database -e "CREATE TABLE IF NOT EXISTS configuracoes (chave VARCHAR(80) NOT NULL PRIMARY KEY, valor TEXT) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;" 2>/dev/null
-echo "Settings table ready."
 
 # Cria config.php para o ambiente Replit se não existir
 CONFIG_FILE="/home/runner/workspace/config.php"
@@ -70,12 +90,14 @@ if [ ! -f "$CONFIG_FILE" ]; then
 <?php
 // Gerado automaticamente pelo start.sh (ambiente Replit)
 // Em hospedagem compartilhada, configure pelo setup.php
+define('DB_DRIVER',  'mysql');
 define('DB_HOST',    '127.0.0.1');
 define('DB_NAME',    'database');
 define('DB_USER',    'root');
 define('DB_PASS',    '');
 define('DB_PORT',    3306);
 define('DB_CHARSET', 'utf8mb4');
+// SETUP_COMPLETE será definido pelo wizard (setup.php)
 EOPHP
     echo "config.php criado para ambiente Replit."
 fi

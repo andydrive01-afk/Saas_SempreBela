@@ -1,4 +1,5 @@
 <?php
+include_once 'inc/auth.php';
 include_once 'inc/settings.php';
     include_once ("pdo/connection.php");
     include_once ("pdo/DAO/financial_DAO.php");
@@ -167,6 +168,21 @@ include_once 'inc/settings.php';
                         colors="primary:#ffffff,secondary:#ffffff"
                         style="width:40px;height:auto">
                         </lord-icon>
+                    </a>
+                </div>
+                <div style="margin-top:auto;padding:12px 8px 8px;border-top:1px solid rgba(255,255,255,.15);text-align:center;">
+                    <div style="font-size:11px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.4px;margin-bottom:4px;">
+                        <?=htmlspecialchars($_SESSION['nome'] ?? '—')?>
+                    </div>
+                    <div style="font-size:10px;color:rgba(255,255,255,.5);margin-bottom:8px;">
+                        <?=ucfirst($_SESSION['nivel'] ?? '')?>
+                    </div>
+                    <a href="pdo/do_logout.php" style="font-size:11px;color:rgba(255,255,255,.6);text-decoration:none;
+                       border:1px solid rgba(255,255,255,.2);border-radius:6px;padding:4px 10px;
+                       display:inline-block;transition:all .2s;"
+                       onmouseover="this.style.background='rgba(255,255,255,.1)'"
+                       onmouseout="this.style.background='transparent'">
+                        Sair
                     </a>
                 </div>
             </nav>

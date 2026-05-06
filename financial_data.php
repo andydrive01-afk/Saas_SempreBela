@@ -1,4 +1,5 @@
 <?php
+include_once 'inc/auth.php';
 include_once 'inc/settings.php';
     include_once ("pdo/connection.php");
     include_once ("pdo/DAO/financial_DAO.php");

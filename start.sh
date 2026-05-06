@@ -60,7 +60,25 @@ echo "Migrations complete."
 
 
 # Migrate settings table
-/nix/store/s2lbn1axpc79kwnc829k5idkwabfq459-mysql-8.0.42/bin/mysql --socket=/tmp/mysql.sock -u root database -e "CREATE TABLE IF NOT EXISTS configuracoes (chave VARCHAR(80) NOT NULL PRIMARY KEY, valor TEXT) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;" 2>/dev/null
+$MYSQL_BIN/mysql --socket=/tmp/mysql.sock -u root database -e "CREATE TABLE IF NOT EXISTS configuracoes (chave VARCHAR(80) NOT NULL PRIMARY KEY, valor TEXT) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;" 2>/dev/null
 echo "Settings table ready."
+
+# Cria config.php para o ambiente Replit se não existir
+CONFIG_FILE="/home/runner/workspace/config.php"
+if [ ! -f "$CONFIG_FILE" ]; then
+    cat > "$CONFIG_FILE" << 'EOPHP'
+<?php
+// Gerado automaticamente pelo start.sh (ambiente Replit)
+// Em hospedagem compartilhada, configure pelo setup.php
+define('DB_HOST',    '127.0.0.1');
+define('DB_NAME',    'database');
+define('DB_USER',    'root');
+define('DB_PASS',    '');
+define('DB_PORT',    3306);
+define('DB_CHARSET', 'utf8mb4');
+EOPHP
+    echo "config.php criado para ambiente Replit."
+fi
+
 echo "Starting PHP server on port 5000..."
 exec php -S 0.0.0.0:5000 -t /home/runner/workspace

@@ -1,0 +1,12 @@
+# Arquivo de configuração com credenciais — NUNCA versionar
+config.php
+
+# Logs
+*.log
+
+# Uploads gerados pelo sistema
+img/salon_logo.*
+
+# Sistema operacional
+.DS_Store
+Thumbs.db

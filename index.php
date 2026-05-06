@@ -161,15 +161,6 @@ include_once 'inc/settings.php';
                     </a>
                 </div>
                 <div class="options">
-                    <a href="backup.php" id="backup" target="_blank" rel="next">Backup
-                        <lord-icon id="backup-anim" src="css/icons/data-server.json"
-                        trigger="none"
-                        colors="primary:#ffffff,secondary:#ffffff"
-                        style="width:40px;height:auto">
-                        </lord-icon>
-                    </a>
-                </div>
-                <div class="options">
                     <a href="setup.php" id="setup" target="_self" rel="next">Configurações
                         <lord-icon id="setup-anim" src="css/icons/edit.json"
                         trigger="none"
@@ -272,12 +263,6 @@ include_once 'inc/settings.php';
             });
             $('#treatment').mouseleave(function(){
                 $('#treatment-anim').attr("trigger", "none");
-            });
-            $('#backup').mouseover(function(){
-                $('#backup-anim').attr("trigger", "loop");
-            });
-            $('#backup').mouseleave(function(){
-                $('#backup-anim').attr("trigger", "none");
             });
             $('#service').mouseover(function(){
                 $('#service-anim').attr("trigger", "loop");

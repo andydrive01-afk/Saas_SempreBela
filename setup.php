@@ -319,6 +319,27 @@ $db_error_msg = (!$_cfg_exists ? '' : (!$_db_ok ? 'Não foi possível conectar a
         </div>
         </form>
 
+        <!-- ══ 5. BACKUP ══ -->
+        <div class="setup-card needs-db <?=!$_db_ok?'locked':''?>">
+            <div class="setup-card-header">💾 Backup do Banco de Dados</div>
+            <div class="setup-card-body">
+                <p style="margin:0 0 16px;color:#555;font-size:14px;line-height:1.6;">
+                    Gera um arquivo <strong>.sql</strong> completo com todas as tabelas e dados do sistema.
+                    Salve-o em um local seguro periodicamente para evitar perda de informações.
+                </p>
+                <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;">
+                    <a href="pdo/backup_db.php" class="setup-btn"
+                       style="text-decoration:none;padding:12px 28px;font-size:15px;<?=!$_db_ok?'pointer-events:none;opacity:.5;':''?>"
+                       <?=!$_db_ok?'aria-disabled="true"':''?>>
+                        ⬇️ Baixar Backup SQL
+                    </a>
+                    <span style="font-size:12px;color:#aaa;">
+                        Arquivo: backup_<?=defined('DB_NAME')?DB_NAME:'database'?>_<?=date('Y-m-d')?>.sql
+                    </span>
+                </div>
+            </div>
+        </div>
+
     </div><!-- /.setup-wrap -->
 
     <script>

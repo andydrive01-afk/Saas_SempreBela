@@ -1,4 +1,5 @@
 <?php
+include_once 'inc/settings.php';
     include_once ('pdo/connection.php');
     include_once ('pdo/DAO/product_DAO.php');
 
@@ -16,10 +17,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="css/fonts.css" rel="stylesheet">
     <link href="css/main.css" rel="stylesheet" />
+    <link href="css/theme.php" rel="stylesheet">
     <script src="js/lord-icon.js"></script>
     <script src="js/jquery-3.5.1.min.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
-    <link rel="icon" href="img/logo.png">
-    <title>Lucia Reis | Estoque</title>
+    <link rel="icon" href="<?=$salon_icon?>">
+    <title><?=$salon_name?> | Estoque</title>
 </head>
 <body class="list-main-section">
     <section>
@@ -150,7 +152,7 @@
         </section>
     </main>
     <footer>
-        <p>Espaço da Beleza Lucia Reis - Santana do Livramento, RS 
+        <p><?=$salon_name?> - <?=$salon_local?> 
         <lord-icon src="css/icons/local.json"
                     trigger="loop"
                     delay="1000"

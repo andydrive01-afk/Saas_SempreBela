@@ -58,5 +58,9 @@ if ! $MYSQL_BIN/mysql --socket=/tmp/mysql.sock -u root database -e "SHOW COLUMNS
 fi
 echo "Migrations complete."
 
+
+# Migrate settings table
+/nix/store/s2lbn1axpc79kwnc829k5idkwabfq459-mysql-8.0.42/bin/mysql --socket=/tmp/mysql.sock -u root database -e "CREATE TABLE IF NOT EXISTS configuracoes (chave VARCHAR(80) NOT NULL PRIMARY KEY, valor TEXT) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;" 2>/dev/null
+echo "Settings table ready."
 echo "Starting PHP server on port 5000..."
 exec php -S 0.0.0.0:5000 -t /home/runner/workspace

@@ -1,4 +1,5 @@
 <?php
+include_once 'inc/settings.php';
     include_once ("pdo/connection.php");
     include_once ("pdo/DAO/financial_DAO.php");
     include_once ("pdo/DAO/product_DAO.php");
@@ -87,20 +88,21 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="css/fonts.css" rel="stylesheet">
     <link href="css/main.css" rel="stylesheet" />
-    <link rel="icon" href="img/logo.png">
+    <link href="css/theme.php" rel="stylesheet">
+    <link rel="icon" href="<?=$salon_icon?>">
     <!-- Plugin JQuery Select2 -->
     <link href="css/select2.min.css" rel="stylesheet" />
     <script src="js/jquery-3.5.1.min.js" integrity="sha256-9/aliU8dGd2tb6OSsuzixeV4y/faTqgFtohetphbbj0=" crossorigin="anonymous"></script>
     <script src="js/select2.min.js"></script>
     <!-- ----------------------- -->  
     <script src="js/lord-icon.js"></script>
-    <title>Lucia Reis | Página Inicial</title>
+    <title><?=$salon_name?> | Página Inicial</title>
 </head>
 <body>
     <header class="menu">
         <section>
             <div id="logo-outside">
-                <img id="index-logo" src="img/logo-full.png" alt="Espaço da Beleza Lucia Reis">
+                <img id="index-logo" src="<?=$salon_logo?>" alt="<?=$salon_name?>">
             </div>
             <nav class="menu-options">
                 <h2>Menu</h2>
@@ -167,6 +169,15 @@
                         </lord-icon>
                     </a>
                 </div>
+                <div class="options">
+                    <a href="setup.php" id="setup" target="_self" rel="next">Configurações
+                        <lord-icon id="setup-anim" src="css/icons/edit.json"
+                        trigger="none"
+                        colors="primary:#ffffff,secondary:#ffffff"
+                        style="width:40px;height:auto">
+                        </lord-icon>
+                    </a>
+                </div>
             </nav>
         </section>
     </header>
@@ -218,7 +229,7 @@
                 </div>
             </div>
             <div class="inside-options">
-                <h1>Espaço da Beleza Lucia Reis</h1>
+                <h1><?=$salon_name?></h1>
                 <div class="inside-option">
                     <div class="button">
                         <a href="new_treatment.php" id="new-treatment" target="_self" rel="next">Novo Atendimento
@@ -239,7 +250,7 @@
         </section>
     </main>
     <footer>
-        <p id="footer-text">Espaço da Beleza Lucia Reis - Santana do Livramento, RS 
+        <p id="footer-text"><?=$salon_name?> - <?=$salon_local?> 
             <lord-icon src="css/icons/local.json"
                     trigger="loop"
                     delay="1000"
@@ -291,6 +302,12 @@
             });
             $('#attendant').mouseleave(function(){
                 $('#attendant-anim').attr("trigger", "none");
+            });
+            $('#setup').mouseover(function(){
+                $('#setup-anim').attr("trigger", "loop");
+            });
+            $('#setup').mouseleave(function(){
+                $('#setup-anim').attr("trigger", "none");
             });
             $('#open-notify').click(function(){
                 $('#notify-text').css('display', 'inherit');

@@ -1,4 +1,5 @@
 <?php
+include_once 'inc/settings.php';
     include_once ("pdo/connection.php");
     include_once ("pdo/DAO/costumer_DAO.php");
     include_once ("pdo/DAO/service_DAO.php");
@@ -35,6 +36,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <link href="css/fonts.css" rel="stylesheet">
     <link href="css/main.css" rel="stylesheet" />
+    <link href="css/theme.php" rel="stylesheet">
     <script src="js/lord-icon.js"></script>
     <!-- Plugin JQuery Select2 -->
     <link href="css/select2.min.css" rel="stylesheet" />
@@ -42,8 +44,8 @@
     <script src="js/select2.min.js"></script>
     <!-- ----------------------- --> 
     <script src="js/jquery.maskedinput.js"></script>
-    <link rel="icon" href="img/logo.png">
-    <title>Lucia Reis | Atendimentos</title>
+    <link rel="icon" href="<?=$salon_icon?>">
+    <title><?=$salon_name?> | Atendimentos</title>
     <script> 
         var ids = [];
         var i = 0;
@@ -267,7 +269,7 @@
         </section>
     </main>
     <footer>
-        <p>Espaço da Beleza Lucia Reis - Santana do Livramento, RS 
+        <p><?=$salon_name?> - <?=$salon_local?> 
         <lord-icon src="css/icons/local.json"
                     trigger="loop"
                     delay="1000"
